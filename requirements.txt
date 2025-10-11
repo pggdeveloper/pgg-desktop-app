@@ -1,0 +1,5 @@
+pyqt5==5.15.11
+opencv-python==4.12.0.88
+pyudev==0.24.3 ; sys_platform == "linux"
+pyobjc==11.1 ; sys_platform == "darwin"
+pyrealsense2==2.54.2.5684 ; sys_platform == "win32"
