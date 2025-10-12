@@ -1,5 +1,201 @@
+# ============================================================================
+# PGG Cattle Monitoring Application - Dependencies
+# ============================================================================
+# Python 3.11+ required
+# Platform-specific dependencies use conditional markers
+# ============================================================================
+
+# ============================================================================
+# GUI Framework
+# ============================================================================
 pyqt5==5.15.11
-opencv-python==4.12.0.88
+pyqt5-qt5==5.15.2
+pyqt5-sip==12.13.0
+
+# ============================================================================
+# Computer Vision
+# ============================================================================
+opencv-python==4.10.0.84
+opencv-contrib-python==4.10.0.84  # SIFT, SURF, and other contrib modules
+
+# ============================================================================
+# Scientific Computing & Linear Algebra
+# ============================================================================
+numpy==1.26.4
+scipy==1.14.1
+scikit-image==0.24.0
+scikit-learn==1.5.2
+
+# ============================================================================
+# Camera SDKs (Platform-Specific)
+# ============================================================================
+
+# Intel RealSense SDK
+pyrealsense2==2.55.1.6486 ; sys_platform == "win32"
+# Note: On Linux/macOS, install via package manager or build from source
+
+# Stereolabs ZED SDK
+pyzed==4.1.4 ; sys_platform == "win32"
+# Note: Requires ZED SDK 4.1+ installed separately on the system
+
+# Platform-specific camera access
 pyudev==0.24.3 ; sys_platform == "linux"
-pyobjc==11.1 ; sys_platform == "darwin"
-pyrealsense2==2.54.2.5684 ; sys_platform == "win32"
+pyobjc-core==10.3.1 ; sys_platform == "darwin"
+pyobjc-framework-AVFoundation==10.3.1 ; sys_platform == "darwin"
+pyobjc-framework-Cocoa==10.3.1 ; sys_platform == "darwin"
+
+# ============================================================================
+# 3D Processing & Point Clouds
+# ============================================================================
+open3d==0.18.0
+trimesh==4.4.9
+networkx==3.3  # Required by trimesh
+
+# Point cloud file formats
+laspy==2.5.4
+pye57==0.4.7
+
+# Mesh processing
+rtree==1.3.0  # Spatial indexing for trimesh
+shapely==2.0.6  # Geometric operations
+
+# ============================================================================
+# Data Processing & Analysis
+# ============================================================================
+pandas==2.2.3
+openpyxl==3.1.5  # Excel file support
+
+# ============================================================================
+# Machine Learning (Optional - for advanced features)
+# ============================================================================
+# PyTorch (Windows only, CPU version)
+torch==2.4.1 ; sys_platform == "win32"
+torchvision==0.19.1 ; sys_platform == "win32"
+
+# ============================================================================
+# Image Processing & Enhancement
+# ============================================================================
+pillow==10.4.0
+imageio==2.35.1
+
+# ============================================================================
+# HTTP Client & API Communication
+# ============================================================================
+requests==2.32.3
+urllib3==2.2.3
+
+# ============================================================================
+# JSON Schema & Validation
+# ============================================================================
+jsonschema==4.23.0
+
+# ============================================================================
+# Serialization & File Formats
+# ============================================================================
+h5py==3.11.0  # HDF5 file format
+
+# ============================================================================
+# Kalman Filtering & Signal Processing
+# ============================================================================
+filterpy==1.4.5  # Kalman filter implementation
+
+# ============================================================================
+# Progress Bars & CLI
+# ============================================================================
+tqdm==4.66.5
+colorama==0.4.6 ; sys_platform == "win32"  # Colored terminal output on Windows
+
+# ============================================================================
+# Configuration & Environment
+# ============================================================================
+python-dotenv==1.0.1  # .env file support
+
+# ============================================================================
+# Date & Time Utilities
+# ============================================================================
+python-dateutil==2.9.0
+
+# ============================================================================
+# Logging & Debugging
+# ============================================================================
+loguru==0.7.2  # Enhanced logging
+
+# ============================================================================
+# Build & Deployment Tools
+# ============================================================================
+pyinstaller==6.10.0  # Windows .exe builder
+pyinstaller-hooks-contrib==2024.8  # Additional hooks for PyInstaller
+
+# ============================================================================
+# Development Dependencies (Optional - for development only)
+# ============================================================================
+# Uncomment if you need these during development
+
+# Testing
+# pytest==8.3.3
+# pytest-cov==5.0.0
+# pytest-bdd==7.2.0
+
+# Code Quality
+# black==24.8.0
+# flake8==7.1.1
+# mypy==1.11.2
+# pylint==3.2.7
+
+# Documentation
+# sphinx==8.0.2
+# sphinx-rtd-theme==2.0.0
+
+# ============================================================================
+# Platform-Specific Notes
+# ============================================================================
+#
+# Windows:
+#   - All packages should install via pip
+#   - RealSense SDK 2.0+ must be installed separately
+#   - ZED SDK 4.0+ must be installed separately
+#   - Visual C++ Redistributables 2015-2022 required
+#
+# macOS:
+#   - pyobjc packages required for camera access
+#   - RealSense SDK must be installed via Homebrew or built from source
+#   - ZED SDK must be installed separately
+#
+# Linux:
+#   - pyudev required for device enumeration
+#   - RealSense SDK: sudo apt-get install librealsense2-dev
+#   - ZED SDK must be installed separately
+#
+# ============================================================================
+# Installation Instructions
+# ============================================================================
+#
+# 1. Create virtual environment:
+#    python -m venv .venv
+#
+# 2. Activate virtual environment:
+#    Windows: .venv\Scripts\activate
+#    Linux/macOS: source .venv/bin/activate
+#
+# 3. Install dependencies:
+#    pip install -r requirements.txt
+#
+# 4. Install camera SDKs separately:
+#    - Intel RealSense SDK: https://github.com/IntelRealSense/librealsense/releases
+#    - ZED SDK: https://www.stereolabs.com/developers/release/
+#
+# ============================================================================
+# Version Notes
+# ============================================================================
+#
+# - Python 3.11+ required (tested with 3.11.9)
+# - PyQt5 5.15.x is the last version supporting Python 3.11
+# - OpenCV 4.10.x includes latest features and bug fixes
+# - NumPy 1.26.x for Python 3.11 compatibility
+# - Open3D 0.18.x has best stability for point cloud processing
+# - Trimesh 4.4.x for comprehensive mesh operations
+# - PyInstaller 6.10.x for Python 3.11 compatibility
+#
+# Last updated: 2025-10-12
+# Compatible with: Windows 10/11, macOS 12+, Ubuntu 20.04+
+# ============================================================================
