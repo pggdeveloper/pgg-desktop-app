@@ -188,7 +188,7 @@ class CowMotionAnalyzer(AnimalMotionAnalyzer):
         Returns:
             Motion magnitude map (H, W)
         """
-        # magnitude = sqrt(flow_x² + flow_y²)
+        # magnitude = sqrt(flow_xÂ² + flow_yÂ²)
         magnitude = np.sqrt(flow[..., 0]**2 + flow[..., 1]**2)
         return magnitude
 
@@ -518,7 +518,7 @@ class CowMotionAnalyzer(AnimalMotionAnalyzer):
             previous_speed: Previous speed in m/s
 
         Returns:
-            Acceleration in m/s²
+            Acceleration in m/sÂ²
         """
         # acceleration = delta_speed / delta_time
         delta_speed = current_speed - previous_speed

@@ -48,8 +48,8 @@ class CowIMUIntegration(AnimalIMUIntegration):
     """
 
     # Cow-specific constants
-    COW_GRAVITY_MAGNITUDE = 9.81  # m/s²
-    COW_TYPICAL_SHAKE_THRESHOLD = 2.0  # m/s² vibration threshold
+    COW_GRAVITY_MAGNITUDE = 9.81  # m/sÂ²
+    COW_TYPICAL_SHAKE_THRESHOLD = 2.0  # m/sÂ² vibration threshold
     COW_MIN_BUFFER_SIZE = 10  # Minimum samples for gravity estimation
     COW_MAX_BUFFER_SIZE = 100  # Maximum buffer size for IMU data
     COW_COMPLEMENTARY_FILTER_ALPHA = 0.98  # Alpha for complementary filter
@@ -113,7 +113,7 @@ class CowIMUIntegration(AnimalIMUIntegration):
         """
         Capture accelerometer data (Scenario 1).
 
-        Stores acceleration in m/s² for x, y, z axes with synchronized timestamp.
+        Stores acceleration in m/sÂ² for x, y, z axes with synchronized timestamp.
         """
         accel_data = AccelerometerData(
             acceleration=np.array([accel_x, accel_y, accel_z]),
@@ -362,7 +362,7 @@ class CowIMUIntegration(AnimalIMUIntegration):
         # Average acceleration vectors
         avg_accel = np.mean([s.acceleration for s in recent_samples], axis=0)
 
-        # Magnitude should be ~9.81 m/s²
+        # Magnitude should be ~9.81 m/sÂ²
         magnitude = np.linalg.norm(avg_accel)
 
         # Direction (normalized)

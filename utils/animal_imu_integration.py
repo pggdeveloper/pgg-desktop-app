@@ -19,7 +19,7 @@ from datetime import datetime
 @dataclass
 class AccelerometerData:
     """Accelerometer measurement with 3-axis acceleration."""
-    acceleration: np.ndarray  # (x, y, z) in m/s²
+    acceleration: np.ndarray  # (x, y, z) in m/sÂ²
     timestamp: datetime
     frame_number: Optional[int] = None
 
@@ -57,7 +57,7 @@ class OrientationEstimate:
 class GravityVector:
     """Estimated gravity vector from accelerometer."""
     direction: np.ndarray  # Unit vector (x, y, z)
-    magnitude: float  # Should be ~9.81 m/s²
+    magnitude: float  # Should be ~9.81 m/sÂ²
     down_vector: np.ndarray  # Unit vector pointing down
     timestamp: datetime
 
@@ -172,9 +172,9 @@ class AnimalIMUIntegration(ABC):
         Capture accelerometer data.
 
         Args:
-            accel_x: Acceleration in x-axis (m/s²)
-            accel_y: Acceleration in y-axis (m/s²)
-            accel_z: Acceleration in z-axis (m/s²)
+            accel_x: Acceleration in x-axis (m/sÂ²)
+            accel_y: Acceleration in y-axis (m/sÂ²)
+            accel_z: Acceleration in z-axis (m/sÂ²)
             timestamp: Timestamp of measurement
             frame_number: Optional associated frame number
 

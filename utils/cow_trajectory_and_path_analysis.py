@@ -682,7 +682,7 @@ class CowTrajectoryAnalyzer(AnimalTrajectoryAnalyzer):
             else:
                 velocity = np.zeros(3)
 
-        # Linear extrapolation: future_pos = current_pos + velocity × delta_t
+        # Linear extrapolation: future_pos = current_pos + velocity Ã— delta_t
         future_position = last_point.position + velocity * prediction_time
 
         return future_position

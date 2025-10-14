@@ -30,7 +30,7 @@ class OpticalFlowResult:
 class SpeedMetrics:
     """Real-world speed and motion metrics."""
     speed_m_s: float  # Speed in meters per second
-    acceleration_m_s2: float  # Acceleration in m/s²
+    acceleration_m_s2: float  # Acceleration in m/sÂ²
     distance_traveled_m: float  # Total distance traveled in meters
     average_speed_m_s: float  # Average speed over period
     max_speed_m_s: float  # Maximum speed recorded
@@ -301,7 +301,7 @@ class AnimalMotionAnalyzer(ABC):
             previous_speed: Previous speed in m/s
 
         Returns:
-            Acceleration in m/s²
+            Acceleration in m/sÂ²
         """
         pass
 

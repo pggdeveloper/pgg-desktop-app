@@ -125,7 +125,7 @@ class CowSceneUnderstanding(AnimalSceneUnderstanding):
         # Floor normal should point up (positive z) and be roughly vertical
         # Allow some tolerance for uneven outdoor terrain
         z_component = abs(normal[2])
-        if z_component < 0.7:  # Allow 45° deviation for outdoor terrain
+        if z_component < 0.7:  # Allow 45Â° deviation for outdoor terrain
             return None
 
         # Calculate confidence based on inlier ratio
