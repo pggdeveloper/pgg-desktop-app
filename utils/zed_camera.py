@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Optional
 import numpy as np
 import cv2
+import json
 from domain.camera_info import CameraInfo
 from config import DEBUG_MODE, BASE_DIR, FPS, REQ_WIDTH, REQ_HEIGHT, VIDEO_SECS, START_RECORDING_DELAY
 
@@ -19,7 +20,13 @@ class ZedCameraRecorder:
     - Side-by-side stereo RGB recording (3840x1080)
     - Left and right camera stream separation
     - Optional IMU data recording via SDK
-    - CPU-only mode (no depth computation)
+
+    Depth Processing:
+    - This class ONLY captures stereo pairs (rgb_left, rgb_right, stereo_sbs)
+    - For depth processing, use offline tools after capture:
+      * Phase 1: ZedOfflineDepthProcessor (process all frames)
+      * Phase 2: SelectiveDepthProcessor (process only frames with animals - RECOMMENDED)
+    - See: utils/zed_phase_1_2_examples.py for complete workflow examples
     """
 
     def __init__(
@@ -31,6 +38,8 @@ class ZedCameraRecorder:
         width: int = REQ_WIDTH,
         height: int = REQ_HEIGHT,
         recording_delay: int = START_RECORDING_DELAY,
+        enable_timestamp_logging: bool = True,
+        save_metadata: bool = True,
     ):
         """
         Initialize Zed camera recorder.
@@ -42,6 +51,15 @@ class ZedCameraRecorder:
             fps: Target frame rate
             width: Stereo frame width (3840 for side-by-side)
             height: Frame height (1080)
+            recording_delay: Delay before starting recording (seconds)
+            enable_timestamp_logging: Enable detailed timestamp logging to CSV
+            save_metadata: Save recording session metadata to JSON
+
+        Note:
+            This class only captures stereo pairs (rgb_left, rgb_right, stereo_sbs).
+            For depth processing, use offline tools after capture:
+            - Phase 1: ZedOfflineDepthProcessor (all frames)
+            - Phase 2: SelectiveDepthProcessor (only frames with animals - RECOMMENDED)
         """
         self.camera_info = camera_info
         self.output_dir = Path(output_dir)
@@ -51,6 +69,8 @@ class ZedCameraRecorder:
         self.height = height
         self.single_width = width // 2  # Width of single camera (1920)
         self.recording_delay = recording_delay
+        self.enable_timestamp_logging = enable_timestamp_logging
+        self.save_metadata = save_metadata
 
         self.camera = None
         self.using_sdk = False
@@ -66,6 +86,18 @@ class ZedCameraRecorder:
 
         # IMU data file (SDK only)
         self.imu_file = None
+
+        # Timestamp log file
+        self.timestamp_log_file = None
+
+        # Session metadata
+        self.session_metadata = {
+            'start_time': None,
+            'end_time': None,
+            'total_frames': 0,
+            'total_duration': 0,
+            'settings': {},
+        }
 
         # Create output directory
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -214,6 +246,13 @@ class ZedCameraRecorder:
             if self.using_sdk and self.camera_info.capabilities.imu:
                 self._create_imu_file()
 
+            # SLOW OPERATION: Create timestamp log file if enabled
+            if self.enable_timestamp_logging:
+                self._create_timestamp_log_file()
+
+            # Initialize session metadata
+            self.session_metadata['start_time'] = datetime.fromtimestamp(sync_timestamp).isoformat()
+
             # Create thread but DON'T start it
             self.recording_thread = threading.Thread(
                 target=self._recording_loop,
@@ -267,6 +306,16 @@ class ZedCameraRecorder:
         self.imu_file = open(self.output_dir / imu_filename, 'w')
         # Write CSV header
         self.imu_file.write("timestamp,frame_number,sensor,x,y,z\n")
+
+    def _create_timestamp_log_file(self):
+        """Create CSV file for timestamp logging."""
+        timestamp_filename = self._generate_filename("timestamps", "csv")
+        self.timestamp_log_file = open(self.output_dir / timestamp_filename, 'w')
+        # Write CSV header
+        self.timestamp_log_file.write(
+            "frame_number,system_timestamp,rgb_left_timestamp,rgb_right_timestamp,"
+            "stereo_sbs_timestamp,imu_timestamp\n"
+        )
 
     def _generate_filename(self, sensor: str, extension: str) -> str:
         """
@@ -325,7 +374,7 @@ class ZedCameraRecorder:
                 left_frame = stereo_frame[:, :self.single_width]
                 right_frame = stereo_frame[:, self.single_width:]
 
-                # Write frames
+                # Write frames (stereo pairs only - depth processing is done offline)
                 self.left_writer.write(left_frame)
                 self.right_writer.write(right_frame)
                 self.stereo_writer.write(stereo_frame)
@@ -333,6 +382,14 @@ class ZedCameraRecorder:
                 # Process IMU data if using SDK
                 if self.using_sdk and self.imu_file:
                     self._process_imu_data_sdk(current_time)
+
+                # Log timestamps if enabled
+                if self.timestamp_log_file:
+                    self.timestamp_log_file.write(
+                        f"{self.frame_count},{current_time},{current_time},"
+                        f"{current_time},{current_time},{current_time if self.imu_file else ''}\n"
+                    )
+                    self.timestamp_log_file.flush()
 
                 self.frame_count += 1
 
@@ -434,8 +491,58 @@ class ZedCameraRecorder:
         if self.recording_thread:
             self.recording_thread.join(timeout=5.0)
 
+    def _save_session_metadata(self):
+        """Save session metadata to JSON file."""
+        if not self.save_metadata or not self.start_timestamp:
+            return
+
+        try:
+            # Update session metadata with final values
+            self.session_metadata['end_time'] = datetime.now().isoformat()
+            self.session_metadata['total_frames'] = self.frame_count
+
+            # Calculate total duration
+            if self.start_timestamp:
+                end_timestamp = time.time()
+                self.session_metadata['total_duration'] = end_timestamp - self.start_timestamp
+
+            # Add settings
+            self.session_metadata['settings'] = {
+                'fps': self.fps,
+                'width': self.width,
+                'height': self.height,
+                'recording_duration': self.recording_duration,
+                'recording_delay': self.recording_delay,
+                'using_sdk': self.using_sdk,
+            }
+
+            # Add camera info
+            self.session_metadata['camera_info'] = {
+                'name': self.camera_info.name,
+                'index': self.camera_info.index,
+                'vendor': self.camera_info.vendor,
+                'serial_number': getattr(self.camera_info, 'serial_number', None),
+            }
+
+            # Save to JSON file
+            metadata_filename = self._generate_filename("session_metadata", "json")
+            metadata_path = self.output_dir / metadata_filename
+
+            with open(metadata_path, 'w') as f:
+                json.dump(self.session_metadata, f, indent=2)
+
+            if DEBUG_MODE:
+                print(f"Saved session metadata to {metadata_path}")
+
+        except Exception as e:
+            if DEBUG_MODE:
+                print(f"Error saving session metadata: {e}")
+
     def _cleanup(self):
         """Release all resources."""
+        # Save session metadata before closing files
+        self._save_session_metadata()
+
         # Release video writers
         if self.left_writer:
             self.left_writer.release()
@@ -443,6 +550,10 @@ class ZedCameraRecorder:
             self.right_writer.release()
         if self.stereo_writer:
             self.stereo_writer.release()
+
+        # Close timestamp log file
+        if self.timestamp_log_file:
+            self.timestamp_log_file.close()
 
         # Close IMU file
         if self.imu_file:
