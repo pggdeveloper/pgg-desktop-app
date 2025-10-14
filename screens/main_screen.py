@@ -2,6 +2,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from constants import APP, THEME
 # from screens.login_screen import LoginScreen
 from screens.capture_screen import CaptureScreen
+from screens.video_screen import VideoScreen
 
 class MainWindow(QtWidgets.QMainWindow):
     """Orquesta pantallas y almacena session_data tras login."""
@@ -31,10 +32,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
         # self.login = LoginScreen()
-        self.capture = CaptureScreen()
+        #self.capture = CaptureScreen()
+        self.video_screen = VideoScreen()
 
         # self.stack.addWidget(self.login)
-        self.stack.addWidget(self.capture)
+        #self.stack.addWidget(self.capture)
+        self.stack.addWidget(self.video_screen)
 
         self.session_data = None
 
