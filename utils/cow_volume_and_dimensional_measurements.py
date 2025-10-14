@@ -22,28 +22,28 @@ try:
     SCIPY_AVAILABLE = True
 except ImportError:
     SCIPY_AVAILABLE = False
-    print("   scipy not available. Some volume calculations disabled.")
+    print("scipy not available. Some volume calculations disabled.")
 
 try:
     import trimesh
     TRIMESH_AVAILABLE = True
 except ImportError:
     TRIMESH_AVAILABLE = False
-    print("   trimesh not available. Mesh volume calculations disabled.")
+    print("trimesh not available. Mesh volume calculations disabled.")
 
 try:
     import open3d as o3d
     OPEN3D_AVAILABLE = True
 except ImportError:
     OPEN3D_AVAILABLE = False
-    print("   Open3D not available. Advanced features disabled.")
+    print("Open3D not available. Advanced features disabled.")
 
 try:
     import pandas as pd
     PANDAS_AVAILABLE = True
 except ImportError:
     PANDAS_AVAILABLE = False
-    print("   pandas not available. CSV operations limited.")
+    print("pandas not available. CSV operations limited.")
 
 try:
     from sklearn.linear_model import LinearRegression
@@ -52,7 +52,7 @@ try:
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
-    print("   scikit-learn not available. Weight regression disabled.")
+    print("scikit-learn not available. Weight regression disabled.")
 
 from .animal_volume_measurements import (
     AnimalVolumeEstimator,
@@ -190,7 +190,7 @@ class CowVolumeEstimator(AnimalVolumeEstimator):
             points: Point cloud [N, 3]
 
         Returns:
-            Volume in m³
+            Volume in mï¿½
         """
         if not SCIPY_AVAILABLE or len(points) < 4:
             return 0.0
@@ -198,10 +198,10 @@ class CowVolumeEstimator(AnimalVolumeEstimator):
         try:
             hull = ConvexHull(points)
             volume = hull.volume
-            print(f"  Convex hull volume: {volume:.6f} m³")
+            print(f"  Convex hull volume: {volume:.6f} mï¿½")
             return float(volume)
         except Exception as e:
-            print(f"   Convex hull failed: {e}")
+            print(f"Convex hull failed: {e}")
             return 0.0
 
     def calculate_voxel_volume(
@@ -217,7 +217,7 @@ class CowVolumeEstimator(AnimalVolumeEstimator):
             voxel_size: Voxel size in meters (default: COW_VOXEL_SIZE)
 
         Returns:
-            Volume in m³
+            Volume in mï¿½
         """
         if voxel_size is None:
             voxel_size = self.COW_VOXEL_SIZE
@@ -236,7 +236,7 @@ class CowVolumeEstimator(AnimalVolumeEstimator):
         voxel_volume_m3 = voxel_size ** 3
         total_volume = occupied_voxels * voxel_volume_m3
 
-        print(f"  Voxel volume: {total_volume:.6f} m³ ({occupied_voxels} voxels @ {voxel_size}m)")
+        print(f"  Voxel volume: {total_volume:.6f} mï¿½ ({occupied_voxels} voxels @ {voxel_size}m)")
 
         return float(total_volume)
 
@@ -253,7 +253,7 @@ class CowVolumeEstimator(AnimalVolumeEstimator):
             normals: Normals [N, 3] (optional, will estimate if None)
 
         Returns:
-            Volume in m³ or None if reconstruction fails
+            Volume in mï¿½ or None if reconstruction fails
         """
         if not OPEN3D_AVAILABLE or not TRIMESH_AVAILABLE:
             return None
@@ -286,15 +286,15 @@ class CowVolumeEstimator(AnimalVolumeEstimator):
 
             # Check if watertight
             if not mesh_obj.is_watertight:
-                print("   Mesh is not watertight, volume may be unreliable")
+                print("Mesh is not watertight, volume may be unreliable")
 
             volume = abs(mesh_obj.volume)
-            print(f"  Mesh volume (Poisson): {volume:.6f} m³ (watertight={mesh_obj.is_watertight})")
+            print(f"  Mesh volume (Poisson): {volume:.6f} mï¿½ (watertight={mesh_obj.is_watertight})")
 
             return float(volume)
 
         except Exception as e:
-            print(f"   Mesh volume calculation failed: {e}")
+            print(f"Mesh volume calculation failed: {e}")
             return None
 
     def calculate_alpha_shape_volume(
@@ -310,7 +310,7 @@ class CowVolumeEstimator(AnimalVolumeEstimator):
             alpha: Alpha parameter (smaller = tighter fit)
 
         Returns:
-            Volume in m³ or None if fails
+            Volume in mï¿½ or None if fails
         """
         if not OPEN3D_AVAILABLE or not TRIMESH_AVAILABLE:
             return None
@@ -331,14 +331,14 @@ class CowVolumeEstimator(AnimalVolumeEstimator):
             volume = abs(mesh_obj.volume) if mesh_obj.is_watertight else None
 
             if volume:
-                print(f"  Alpha shape volume (±={alpha}): {volume:.6f} m³")
+                print(f"  Alpha shape volume (ï¿½={alpha}): {volume:.6f} mï¿½")
             else:
-                print(f"   Alpha shape not watertight")
+                print(f"Alpha shape not watertight")
 
             return float(volume) if volume else None
 
         except Exception as e:
-            print(f"   Alpha shape calculation failed: {e}")
+            print(f"Alpha shape calculation failed: {e}")
             return None
 
     def calculate_statistical_volume(
@@ -354,7 +354,7 @@ class CowVolumeEstimator(AnimalVolumeEstimator):
             occupancy_ratio: Estimated occupancy (0.3-0.7 typical)
 
         Returns:
-            Volume in m³
+            Volume in mï¿½
         """
         # Calculate bounding box
         min_bound = points.min(axis=0)
@@ -364,8 +364,8 @@ class CowVolumeEstimator(AnimalVolumeEstimator):
         bbox_volume = dimensions[0] * dimensions[1] * dimensions[2]
         statistical_volume = bbox_volume * occupancy_ratio
 
-        print(f"  Statistical volume: {statistical_volume:.6f} m³ "
-              f"(bbox={bbox_volume:.6f} m³ × {occupancy_ratio})")
+        print(f"  Statistical volume: {statistical_volume:.6f} mï¿½ "
+              f"(bbox={bbox_volume:.6f} mï¿½ ï¿½ {occupancy_ratio})")
 
         return float(statistical_volume)
 
@@ -426,7 +426,7 @@ class CowVolumeEstimator(AnimalVolumeEstimator):
             confidence=confidence
         )
 
-        print(f" Best volume estimate: {best_volume:.6f} m³ (method={method}, confidence={confidence})")
+        print(f" Best volume estimate: {best_volume:.6f} mï¿½ (method={method}, confidence={confidence})")
 
         return metrics
 
@@ -470,7 +470,7 @@ class CowVolumeEstimator(AnimalVolumeEstimator):
             a, b, c, d = ground_plane
             highest_point = points[np.argmax(points[:, 2])]
 
-            # Distance from point to plane: |ax + by + cz + d| / sqrt(a² + b² + c²)
+            # Distance from point to plane: |ax + by + cz + d| / sqrt(aï¿½ + bï¿½ + cï¿½)
             distance = abs(a * highest_point[0] + b * highest_point[1] +
                           c * highest_point[2] + d) / np.sqrt(a**2 + b**2 + c**2)
             height = float(distance)
@@ -547,7 +547,7 @@ class CowVolumeEstimator(AnimalVolumeEstimator):
         Get cattle-specific density.
 
         Returns:
-            Density in kg/m³
+            Density in kg/mï¿½
         """
         # Adjust density based on subtype
         if self.animal_subtype == 'calf':
@@ -564,7 +564,7 @@ class CowVolumeEstimator(AnimalVolumeEstimator):
         Estimate cow weight from volume.
 
         Args:
-            volume: Volume in m³
+            volume: Volume in mï¿½
             method: Estimation method
 
         Returns:
@@ -574,7 +574,7 @@ class CowVolumeEstimator(AnimalVolumeEstimator):
             # Simple density-based estimation
             density = self.get_species_density()
             weight_kg = volume * density
-            uncertainty_kg = weight_kg * 0.10  # ±10% typical uncertainty
+            uncertainty_kg = weight_kg * 0.10  # ï¿½10% typical uncertainty
 
             return WeightEstimate(
                 estimated_weight_kg=weight_kg,
@@ -589,9 +589,9 @@ class CowVolumeEstimator(AnimalVolumeEstimator):
         elif method == 'linear_regression' and self._weight_model_linear is not None:
             # Use calibrated linear model
             weight_kg = float(self._weight_model_linear.predict([[volume]])[0])
-            uncertainty_kg = weight_kg * 0.05  # ±5% with calibration
+            uncertainty_kg = weight_kg * 0.05  # ï¿½5% with calibration
 
-            # Determine confidence based on R²
+            # Determine confidence based on Rï¿½
             if self._calibration_r2 > 0.95:
                 confidence = 'high'
             elif self._calibration_r2 > 0.85:
@@ -646,14 +646,14 @@ class CowVolumeEstimator(AnimalVolumeEstimator):
         Calibrate weight estimation model with ground truth.
 
         Args:
-            volumes: Array of volumes [N] in m³
+            volumes: Array of volumes [N] in mï¿½
             actual_weights: Array of actual weights [N] in kg
 
         Returns:
-            Dict with calibration metrics (R², RMSE, MAE)
+            Dict with calibration metrics (Rï¿½, RMSE, MAE)
         """
         if not SKLEARN_AVAILABLE:
-            print("   scikit-learn not available for calibration")
+            print("scikit-learn not available for calibration")
             return {}
 
         # Reshape for sklearn
@@ -701,8 +701,8 @@ class CowVolumeEstimator(AnimalVolumeEstimator):
         }
 
         print(f" Weight model calibrated:")
-        print(f"   Linear: R²={r2_linear:.3f}, RMSE={rmse_linear:.2f} kg, MAE={mae_linear:.2f} kg")
-        print(f"   Polynomial: R²={r2_poly:.3f}, RMSE={rmse_poly:.2f} kg, MAE={mae_poly:.2f} kg")
+        print(f"   Linear: Rï¿½={r2_linear:.3f}, RMSE={rmse_linear:.2f} kg, MAE={mae_linear:.2f} kg")
+        print(f"   Polynomial: Rï¿½={r2_poly:.3f}, RMSE={rmse_poly:.2f} kg, MAE={mae_poly:.2f} kg")
         print(f"   Best model: {best_model}")
 
         return metrics
@@ -722,27 +722,27 @@ class CowVolumeEstimator(AnimalVolumeEstimator):
 
         Args:
             animal_id: Animal identifier
-            volume: Volume in m³
+            volume: Volume in mï¿½
             timestamp: Measurement timestamp
         """
         if animal_id not in self.volume_history:
             self.volume_history[animal_id] = []
 
         self.volume_history[animal_id].append((timestamp, volume))
-        print(f" Volume tracked for {animal_id}: {volume:.6f} m³ @ {timestamp}")
+        print(f" Volume tracked for {animal_id}: {volume:.6f} mï¿½ @ {timestamp}")
 
     def calculate_growth_rate(
         self,
         animal_id: str
     ) -> Optional[float]:
         """
-        Calculate growth rate in m³/day.
+        Calculate growth rate in mï¿½/day.
 
         Args:
             animal_id: Animal identifier
 
         Returns:
-            Growth rate in m³/day or None if insufficient data
+            Growth rate in mï¿½/day or None if insufficient data
         """
         if animal_id not in self.volume_history or len(self.volume_history[animal_id]) < 2:
             return None
@@ -757,7 +757,7 @@ class CowVolumeEstimator(AnimalVolumeEstimator):
         volume_change = last_volume - first_volume
         growth_rate = volume_change / time_delta_days if time_delta_days > 0 else 0
 
-        print(f"  Growth rate for {animal_id}: {growth_rate:.8f} m³/day")
+        print(f"  Growth rate for {animal_id}: {growth_rate:.8f} mï¿½/day")
 
         return float(growth_rate)
 
@@ -869,9 +869,9 @@ class CowVolumeEstimator(AnimalVolumeEstimator):
         self.measurements_history.append(report)
 
         print(f" Measurement report generated for {animal_id}")
-        print(f"   Volume: {volume_metrics.best_estimate:.6f} m³")
+        print(f"   Volume: {volume_metrics.best_estimate:.6f} mï¿½")
         print(f"   Weight: {weight_estimate.estimated_weight_kg:.2f} kg")
-        print(f"   Dimensions: {body_dimensions.length:.2f}m × {body_dimensions.width:.2f}m × {body_dimensions.height:.2f}m")
+        print(f"   Dimensions: {body_dimensions.length:.2f}m ï¿½ {body_dimensions.width:.2f}m ï¿½ {body_dimensions.height:.2f}m")
 
         return report
 
@@ -887,7 +887,7 @@ class CowVolumeEstimator(AnimalVolumeEstimator):
         Compute summary statistics for herd.
 
         Args:
-            volumes: List of volumes in m³
+            volumes: List of volumes in mï¿½
 
         Returns:
             Dict with mean, median, std, min, max
@@ -903,11 +903,11 @@ class CowVolumeEstimator(AnimalVolumeEstimator):
             'count': len(volumes)
         }
 
-        print(f"=Ê Herd statistics (n={stats['count']}):")
-        print(f"   Mean: {stats['mean_volume']:.6f} m³")
-        print(f"   Median: {stats['median_volume']:.6f} m³")
-        print(f"   Std: {stats['std_volume']:.6f} m³")
-        print(f"   Range: [{stats['min_volume']:.6f}, {stats['max_volume']:.6f}] m³")
+        print(f"=ï¿½ Herd statistics (n={stats['count']}):")
+        print(f"   Mean: {stats['mean_volume']:.6f} mï¿½")
+        print(f"   Median: {stats['median_volume']:.6f} mï¿½")
+        print(f"   Std: {stats['std_volume']:.6f} mï¿½")
+        print(f"   Range: [{stats['min_volume']:.6f}, {stats['max_volume']:.6f}] mï¿½")
 
         return stats
 
@@ -920,7 +920,7 @@ class CowVolumeEstimator(AnimalVolumeEstimator):
         Identify animals with abnormal growth rates (outliers).
 
         Args:
-            growth_rates: List of growth rates in m³/day
+            growth_rates: List of growth rates in mï¿½/day
             threshold: Z-score threshold (default: 2.5 standard deviations)
 
         Returns:
@@ -936,8 +936,8 @@ class CowVolumeEstimator(AnimalVolumeEstimator):
         z_scores = (rates_array - mean_rate) / std_rate
         outliers = np.where(np.abs(z_scores) > threshold)[0].tolist()
 
-        print(f"   Growth outliers detected: {len(outliers)}/{len(growth_rates)} animals")
+        print(f"Growth outliers detected: {len(outliers)}/{len(growth_rates)} animals")
         for idx in outliers:
-            print(f"   Animal {idx}: rate={growth_rates[idx]:.8f} m³/day (z={z_scores[idx]:.2f})")
+            print(f"   Animal {idx}: rate={growth_rates[idx]:.8f} mï¿½/day (z={z_scores[idx]:.2f})")
 
         return outliers
