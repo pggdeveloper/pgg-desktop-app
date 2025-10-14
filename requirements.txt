@@ -80,6 +80,10 @@ openpyxl==3.1.5  # Excel file support
 torch==2.4.1 ; sys_platform == "win32"
 torchvision==0.19.1 ; sys_platform == "win32"
 
+# YOLO Object Detection (for Phase 2 selective depth processing)
+# Required for SelectiveDepthProcessor - cattle/animal detection
+ultralytics==8.3.0  # YOLOv8 - includes PyTorch (CPU) for all platforms
+
 # ============================================================================
 # Image Processing & Enhancement
 # ============================================================================
