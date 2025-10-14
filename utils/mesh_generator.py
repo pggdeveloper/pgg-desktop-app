@@ -18,21 +18,21 @@ try:
     OPEN3D_AVAILABLE = True
 except ImportError:
     OPEN3D_AVAILABLE = False
-    print("⚠️  Open3D not available. Mesh generation features limited.")
+    print("Open3D not available. Mesh generation features limited.")
 
 try:
     import trimesh
     TRIMESH_AVAILABLE = True
 except ImportError:
     TRIMESH_AVAILABLE = False
-    print("⚠️  trimesh not available. Some mesh features disabled.")
+    print("trimesh not available. Some mesh features disabled.")
 
 try:
     from skimage import measure
     SKIMAGE_AVAILABLE = True
 except ImportError:
     SKIMAGE_AVAILABLE = False
-    print("⚠️  scikit-image not available. Marching cubes disabled.")
+    print("scikit-image not available. Marching cubes disabled.")
 
 try:
     from scipy.spatial import Delaunay
@@ -40,7 +40,7 @@ try:
     SCIPY_AVAILABLE = True
 except ImportError:
     SCIPY_AVAILABLE = False
-    print("⚠️  scipy not available. Delaunay triangulation disabled.")
+    print("scipy not available. Delaunay triangulation disabled.")
 
 
 @dataclass
@@ -105,7 +105,7 @@ class MeshGenerator:
             Tuple of (vertices [M, 3], triangles [T, 3])
         """
         if not OPEN3D_AVAILABLE:
-            print("⚠️  Open3D required for Poisson reconstruction.")
+            print("Open3D required for Poisson reconstruction.")
             return np.array([]), np.array([])
 
         # Create Open3D point cloud with normals
@@ -129,7 +129,7 @@ class MeshGenerator:
         vertices = np.asarray(mesh.vertices)
         triangles = np.asarray(mesh.triangles)
 
-        print(f"✅ Poisson reconstruction: {len(vertices)} vertices, {len(triangles)} triangles")
+        print(f"Poisson reconstruction: {len(vertices)} vertices, {len(triangles)} triangles")
 
         return vertices, triangles
 
@@ -151,7 +151,7 @@ class MeshGenerator:
             Tuple of (vertices [M, 3], triangles [T, 3])
         """
         if not SKIMAGE_AVAILABLE:
-            print("⚠️  scikit-image required for marching cubes.")
+            print("scikit-image required for marching cubes.")
             return np.array([]), np.array([])
 
         # Apply marching cubes
@@ -161,7 +161,7 @@ class MeshGenerator:
             spacing=spacing
         )
 
-        print(f"✅ Marching cubes: {len(verts)} vertices, {len(faces)} triangles")
+        print(f"Marching cubes: {len(verts)} vertices, {len(faces)} triangles")
 
         return verts, faces
 
@@ -185,7 +185,7 @@ class MeshGenerator:
             Tuple of (vertices [M, 3], triangles [T, 3])
         """
         if not OPEN3D_AVAILABLE:
-            print("⚠️  Open3D required for ball pivoting.")
+            print("Open3D required for ball pivoting.")
             return np.array([]), np.array([])
 
         # Create Open3D point cloud with normals
@@ -207,7 +207,7 @@ class MeshGenerator:
         vertices = np.asarray(mesh.vertices)
         triangles = np.asarray(mesh.triangles)
 
-        print(f"✅ Ball pivoting: {len(vertices)} vertices, {len(triangles)} triangles")
+        print(f"Ball pivoting: {len(vertices)} vertices, {len(triangles)} triangles")
 
         return vertices, triangles
 
@@ -227,13 +227,13 @@ class MeshGenerator:
             Tuple of (vertices [M, 3], simplices [T, 3 or 4])
         """
         if not SCIPY_AVAILABLE:
-            print("⚠️  scipy required for Delaunay triangulation.")
+            print("scipy required for Delaunay triangulation.")
             return np.array([]), np.array([])
 
         # Apply Delaunay triangulation
         delaunay = Delaunay(points)
 
-        print(f"✅ Delaunay triangulation: {len(points)} points, {len(delaunay.simplices)} simplices")
+        print(f"Delaunay triangulation: {len(points)} points, {len(delaunay.simplices)} simplices")
 
         return points, delaunay.simplices
 
@@ -255,7 +255,7 @@ class MeshGenerator:
             Tuple of (vertices [M, 3], triangles [T, 3])
         """
         if not OPEN3D_AVAILABLE:
-            print("⚠️  Open3D required for alpha shapes.")
+            print("Open3D required for alpha shapes.")
             return np.array([]), np.array([])
 
         # Create Open3D point cloud
@@ -275,7 +275,7 @@ class MeshGenerator:
         vertices = np.asarray(mesh.vertices)
         triangles = np.asarray(mesh.triangles)
 
-        print(f"✅ Alpha shape (alpha={alpha}): {len(vertices)} vertices, {len(triangles)} triangles")
+        print(f"Alpha shape (alpha={alpha}): {len(vertices)} vertices, {len(triangles)} triangles")
 
         return vertices, triangles
 
@@ -301,7 +301,7 @@ class MeshGenerator:
             Tuple of (simplified_vertices, simplified_triangles)
         """
         if not OPEN3D_AVAILABLE:
-            print("⚠️  Open3D required for mesh decimation.")
+            print("Open3D required for mesh decimation.")
             return vertices, triangles
 
         # Create Open3D mesh
@@ -321,7 +321,7 @@ class MeshGenerator:
         simplified_vertices = np.asarray(mesh_simplified.vertices)
         simplified_triangles = np.asarray(mesh_simplified.triangles)
 
-        print(f"✅ Decimation: {len(triangles)} → {len(simplified_triangles)} triangles "
+        print(f"Decimation: {len(triangles)} → {len(simplified_triangles)} triangles "
               f"({target_reduction*100:.0f}% reduction)")
 
         return simplified_vertices, simplified_triangles
@@ -346,7 +346,7 @@ class MeshGenerator:
             Smoothed vertices [N, 3]
         """
         if not OPEN3D_AVAILABLE:
-            print("⚠️  Open3D required for Laplacian smoothing.")
+            print("Open3D required for Laplacian smoothing.")
             return vertices
 
         # Create Open3D mesh
@@ -362,7 +362,7 @@ class MeshGenerator:
         # Extract smoothed vertices
         smoothed_vertices = np.asarray(mesh_smoothed.vertices)
 
-        print(f"✅ Laplacian smoothing: {iterations} iterations")
+        print(f"Laplacian smoothing: {iterations} iterations")
 
         return smoothed_vertices
 
@@ -390,7 +390,7 @@ class MeshGenerator:
             Smoothed vertices [N, 3]
         """
         if not TRIMESH_AVAILABLE:
-            print("⚠️  trimesh required for Taubin smoothing.")
+            print("trimesh required for Taubin smoothing.")
             return vertices
 
         # Create trimesh mesh
@@ -402,7 +402,7 @@ class MeshGenerator:
         # Extract smoothed vertices
         smoothed_vertices = mesh.vertices
 
-        print(f"✅ Taubin smoothing: {iterations} iterations (λ={lamb}, μ={mu})")
+        print(f"Taubin smoothing: {iterations} iterations (λ={lamb}, μ={mu})")
 
         return smoothed_vertices
 
@@ -426,7 +426,7 @@ class MeshGenerator:
             Tuple of (filled_vertices, filled_triangles)
         """
         if not TRIMESH_AVAILABLE:
-            print("⚠️  trimesh required for hole filling.")
+            print("trimesh required for hole filling.")
             return vertices, triangles
 
         # Create trimesh mesh
@@ -439,7 +439,7 @@ class MeshGenerator:
         filled_vertices = mesh.vertices
         filled_triangles = mesh.faces
 
-        print(f"✅ Hole filling: {len(triangles)} → {len(filled_triangles)} triangles")
+        print(f"Hole filling: {len(triangles)} → {len(filled_triangles)} triangles")
 
         return filled_vertices, filled_triangles
 
@@ -461,7 +461,7 @@ class MeshGenerator:
             Tuple of (repaired_vertices, repaired_triangles)
         """
         if not TRIMESH_AVAILABLE:
-            print("⚠️  trimesh required for mesh repair.")
+            print("trimesh required for mesh repair.")
             return vertices, triangles
 
         # Create trimesh mesh
@@ -479,7 +479,7 @@ class MeshGenerator:
         repaired_vertices = mesh.vertices
         repaired_triangles = mesh.faces
 
-        print(f"✅ Mesh repair: {len(vertices)} → {len(repaired_vertices)} vertices, "
+        print(f"Mesh repair: {len(vertices)} → {len(repaired_vertices)} vertices, "
               f"{len(triangles)} → {len(repaired_triangles)} triangles")
 
         return repaired_vertices, repaired_triangles
@@ -506,7 +506,7 @@ class MeshGenerator:
             Normals [N, 3] or [T, 3] (unit vectors)
         """
         if not OPEN3D_AVAILABLE:
-            print("⚠️  Open3D required for normal computation.")
+            print("Open3D required for normal computation.")
             return np.array([])
 
         # Create Open3D mesh
@@ -523,7 +523,7 @@ class MeshGenerator:
             mesh.compute_triangle_normals()
             normals = np.asarray(mesh.triangle_normals)
 
-        print(f"✅ Computed {'vertex' if per_vertex else 'face'} normals: {len(normals)}")
+        print(f"Computed {'vertex' if per_vertex else 'face'} normals: {len(normals)}")
 
         return normals
 
@@ -543,7 +543,7 @@ class MeshGenerator:
             MeshQualityMetrics object
         """
         if not TRIMESH_AVAILABLE:
-            print("⚠️  trimesh required for quality metrics.")
+            print("trimesh required for quality metrics.")
             return MeshQualityMetrics(
                 triangle_count=len(triangles),
                 vertex_count=len(vertices),
@@ -591,7 +591,7 @@ class MeshGenerator:
             volume=float(abs(mesh.volume)) if mesh.is_watertight else 0
         )
 
-        print(f"✅ Mesh quality: {metrics.triangle_count} triangles, "
+        print(f"Mesh quality: {metrics.triangle_count} triangles, "
               f"watertight={metrics.is_watertight}, manifold={metrics.is_manifold}")
 
         return metrics
@@ -624,7 +624,7 @@ class MeshGenerator:
             'edge_count': edge_count,
         }
 
-        print(f"✅ Triangle statistics: {stats['triangle_count']} triangles, "
+        print(f"Triangle statistics: {stats['triangle_count']} triangles, "
               f"{stats['vertex_count']} vertices, {stats['edge_count']} edges")
 
         return stats
@@ -647,7 +647,7 @@ class MeshGenerator:
             True if mesh is watertight
         """
         if not TRIMESH_AVAILABLE:
-            print("⚠️  trimesh required for watertight validation.")
+            print("trimesh required for watertight validation.")
             return False
 
         # Create trimesh mesh
@@ -656,7 +656,7 @@ class MeshGenerator:
         # Check if watertight
         is_watertight = mesh.is_watertight
 
-        print(f"✅ Watertight check: {is_watertight}")
+        print(f"Watertight check: {is_watertight}")
 
         return is_watertight
 
@@ -702,10 +702,10 @@ class MeshGenerator:
             mesh.export(str(output_path))
 
         else:
-            print("⚠️  Open3D or trimesh required for OBJ export.")
+            print("Open3D or trimesh required for OBJ export.")
             return
 
-        print(f"✅ Exported mesh to OBJ: {output_path}")
+        print(f"Exported mesh to OBJ: {output_path}")
 
     def export_to_stl(
         self,
@@ -732,10 +732,10 @@ class MeshGenerator:
             mesh.triangles = o3d.utility.Vector3iVector(triangles)
             o3d.io.write_triangle_mesh(str(output_path), mesh)
         else:
-            print("⚠️  trimesh or Open3D required for STL export.")
+            print("trimesh or Open3D required for STL export.")
             return
 
-        print(f"✅ Exported mesh to STL: {output_path}")
+        print(f"Exported mesh to STL: {output_path}")
 
     def export_to_ply_with_faces(
         self,
@@ -758,7 +758,7 @@ class MeshGenerator:
             binary: If True, export binary; else ASCII
         """
         if not OPEN3D_AVAILABLE:
-            print("⚠️  Open3D required for PLY export.")
+            print("Open3D required for PLY export.")
             return
 
         # Create Open3D mesh
@@ -775,7 +775,7 @@ class MeshGenerator:
         # Export
         o3d.io.write_triangle_mesh(str(output_path), mesh, write_ascii=not binary)
 
-        print(f"✅ Exported mesh to PLY: {output_path}")
+        print(f"Exported mesh to PLY: {output_path}")
 
     def export_to_collada(
         self,
@@ -792,7 +792,7 @@ class MeshGenerator:
             output_path: Output file path
         """
         if not TRIMESH_AVAILABLE:
-            print("⚠️  trimesh required for COLLADA export.")
+            print("trimesh required for COLLADA export.")
             return
 
         # Create trimesh mesh
@@ -801,7 +801,7 @@ class MeshGenerator:
         # Export to COLLADA
         mesh.export(str(output_path), file_type='dae')
 
-        print(f"✅ Exported mesh to COLLADA: {output_path}")
+        print(f"Exported mesh to COLLADA: {output_path}")
 
     def export_to_off(
         self,
@@ -836,4 +836,4 @@ class MeshGenerator:
                 for t in triangles:
                     f.write(f"3 {t[0]} {t[1]} {t[2]}\n")
 
-        print(f"✅ Exported mesh to OFF: {output_path}")
+        print(f"Exported mesh to OFF: {output_path}")

@@ -20,7 +20,7 @@ try:
     OPEN3D_AVAILABLE = True
 except ImportError:
     OPEN3D_AVAILABLE = False
-    print("⚠️  Open3D not available. Advanced point cloud features disabled.")
+    print("Open3D not available. Advanced point cloud features disabled.")
 
 try:
     import laspy
@@ -253,7 +253,7 @@ class PointCloudProcessor:
             Tuple of (filtered_points, filtered_colors)
         """
         if not OPEN3D_AVAILABLE:
-            print("⚠️  Open3D not available. Skipping statistical outlier removal.")
+            print("Open3D not available. Skipping statistical outlier removal.")
             return points, colors
 
         # Create Open3D point cloud
@@ -298,7 +298,7 @@ class PointCloudProcessor:
             Tuple of (filtered_points, filtered_colors)
         """
         if not OPEN3D_AVAILABLE:
-            print("⚠️  Open3D not available. Skipping radius outlier removal.")
+            print("Open3D not available. Skipping radius outlier removal.")
             return points, colors
 
         # Create Open3D point cloud
@@ -404,7 +404,7 @@ class PointCloudProcessor:
             Tuple of (downsampled_points, downsampled_colors)
         """
         if not OPEN3D_AVAILABLE:
-            print("⚠️  Open3D not available. Skipping voxel downsampling.")
+            print("Open3D not available. Skipping voxel downsampling.")
             return points, colors
 
         # Create Open3D point cloud
@@ -519,7 +519,7 @@ class PointCloudProcessor:
             Normals array [N, 3] (unit vectors)
         """
         if not OPEN3D_AVAILABLE:
-            print("⚠️  Open3D not available. Cannot estimate normals.")
+            print("Open3D not available. Cannot estimate normals.")
             return np.zeros_like(points)
 
         # Create Open3D point cloud
@@ -559,7 +559,7 @@ class PointCloudProcessor:
             Curvature values [N] (0 = flat, higher = curved)
         """
         if not OPEN3D_AVAILABLE:
-            print("⚠️  Open3D not available. Cannot compute curvature.")
+            print("Open3D not available. Cannot compute curvature.")
             return np.zeros(len(points))
 
         # Create Open3D point cloud with normals
@@ -718,7 +718,7 @@ class PointCloudProcessor:
             Tuple of (transformation_matrix [4, 4], registration_error)
         """
         if not OPEN3D_AVAILABLE:
-            print("⚠️  Open3D not available. Cannot perform ICP.")
+            print("Open3D not available. Cannot perform ICP.")
             return np.eye(4), float('inf')
 
         # Create Open3D point clouds
@@ -890,7 +890,7 @@ class PointCloudProcessor:
                 pcd.colors = o3d.utility.Vector3dVector(colors / 255.0)
             o3d.io.write_point_cloud(str(output_path), pcd, write_ascii=False)
         else:
-            print("⚠️  Open3D required for binary PLY export.")
+            print("Open3D required for binary PLY export.")
 
     def export_to_pcd(
         self,
@@ -907,7 +907,7 @@ class PointCloudProcessor:
             output_path: Output file path
         """
         if not OPEN3D_AVAILABLE:
-            print("⚠️  Open3D required for PCD export.")
+            print("Open3D required for PCD export.")
             return
 
         pcd = o3d.geometry.PointCloud()
@@ -975,7 +975,7 @@ class PointCloudProcessor:
             output_path: Output file path
         """
         if not LASPY_AVAILABLE:
-            print("⚠️  laspy library required for LAS export. Install: pip install laspy")
+            print("laspy library required for LAS export. Install: pip install laspy")
             return
 
         # Create LAS file
@@ -1011,7 +1011,7 @@ class PointCloudProcessor:
             output_path: Output file path
         """
         if not PYE57_AVAILABLE:
-            print("⚠️  pye57 library required for E57 export. Install: pip install pye57")
+            print("pye57 library required for E57 export. Install: pip install pye57")
             return
 
         # Create E57 file
@@ -1198,7 +1198,7 @@ class PointCloudProcessor:
             Consistently oriented normals [N, 3]
         """
         if not OPEN3D_AVAILABLE:
-            print("⚠️  Open3D not available. Cannot orient normals.")
+            print("Open3D not available. Cannot orient normals.")
             return normals
 
         # Create Open3D point cloud with normals
@@ -1254,7 +1254,7 @@ class PointCloudProcessor:
             window_name: Viewer window title
         """
         if not OPEN3D_AVAILABLE:
-            print("⚠️  Open3D not available. Cannot visualize point cloud.")
+            print("Open3D not available. Cannot visualize point cloud.")
             return
 
         # Create Open3D point cloud
@@ -1334,7 +1334,7 @@ class PointCloudProcessor:
         with open(output_path, 'w') as f:
             json.dump(metadata, f, indent=2)
 
-        print(f"✅ Metadata saved to {output_path}")
+        print(f"Metadata saved to {output_path}")
 
     def process_point_cloud_pipeline(
         self,
@@ -1376,7 +1376,7 @@ class PointCloudProcessor:
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        print("🔄 Starting point cloud processing pipeline...")
+        print("Starting point cloud processing pipeline...")
 
         # Step 1-2: Calculate colored point cloud
         print("  1. Calculating point cloud from depth...")
@@ -1391,7 +1391,7 @@ class PointCloudProcessor:
         print(f"     {len(points)} valid points after filtering")
 
         if len(points) == 0:
-            print("⚠️  No valid points after filtering. Aborting pipeline.")
+            print("No valid points after filtering. Aborting pipeline.")
             return np.array([]), np.array([]), None
 
         # Step 5: Create Open3D point cloud (implicit in subsequent operations)
@@ -1463,7 +1463,7 @@ class PointCloudProcessor:
             points, colors, normals, camera_intrinsics, metadata_path
         )
 
-        print("✅ Point cloud processing pipeline completed successfully!")
+        print("Point cloud processing pipeline completed successfully!")
         print(f"   Final point count: {len(points)}")
         print(f"   Output directory: {output_dir}")
 

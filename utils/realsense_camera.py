@@ -1753,7 +1753,7 @@ class RealSenseCameraRecorder:
                 print(f"  Posture:         {posture_analysis.abnormal_posture_type or 'Normal'} (illness likelihood: {posture_analysis.illness_likelihood:.2f})")
 
                 if symmetry_analysis.asymmetry_index > 0.15:
-                    print(f"  ⚠️  Body Asymmetry: {symmetry_analysis.asymmetry_index:.2f} (lameness risk: {symmetry_analysis.lameness_risk_score:.2f})")
+                    print(f"  Body Asymmetry: {symmetry_analysis.asymmetry_index:.2f} (lameness risk: {symmetry_analysis.lameness_risk_score:.2f})")
 
                 print(f"\n[Environmental Conditions]")
                 print(f"  Pen Cleanliness: {cleanliness.cleanliness_score:.2f} (soiled: {cleanliness.soiled_area_percentage:.1f}%)")
@@ -1787,11 +1787,11 @@ class RealSenseCameraRecorder:
 
         if available_gb < self.disk_stop_gb:
             if DEBUG_MODE:
-                print(f"⚠️  Disk space critically low: {available_gb:.2f} GB. Stopping recording.")
+                print(f"Disk space critically low: {available_gb:.2f} GB. Stopping recording.")
             return available_gb, True
         elif available_gb < self.disk_warning_gb:
             if DEBUG_MODE:
-                print(f"⚠️  Disk space warning: {available_gb:.2f} GB remaining")
+                print(f"Disk space warning: {available_gb:.2f} GB remaining")
 
         return available_gb, False
 
@@ -1958,7 +1958,7 @@ class RealSenseCameraRecorder:
                 print(f"  Frames skipped: {self.frame_count - self.processed_frame_count}")
             print(f"  Timestamp violations: {self.timestamp_violations}")
             if self.timestamp_violations == 0:
-                print(f"  ✓ All timestamps monotonically increasing")
+                print(f"  All timestamps monotonically increasing")
 
         # Print recording summary
         if DEBUG_MODE:

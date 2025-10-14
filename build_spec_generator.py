@@ -39,8 +39,8 @@ def generate_spec_file():
 
         # Camera SDKs
         'pyrealsense2',
-        'pyzed',
-        'pyzed.sl',
+        #'pyzed',
+        #'pyzed.sl',
 
         # OpenCV
         'cv2',
@@ -211,10 +211,10 @@ coll = COLLECT(
     with open(spec_path, 'w', encoding='utf-8') as f:
         f.write(spec_content)
 
-    print(f"✓ PyInstaller spec file generated: {spec_path}")
-    print(f"✓ Hidden imports: {len(hidden_imports)} modules")
-    print(f"✓ Data files: {len(datas)} entries")
-    print(f"✓ Excluded modules: {len(excludes)} modules")
+    print(f"PyInstaller spec file generated: {spec_path}")
+    print(f"Hidden imports: {len(hidden_imports)} modules")
+    print(f"Data files: {len(datas)} entries")
+    print(f"Excluded modules: {len(excludes)} modules")
 
     return spec_path
 

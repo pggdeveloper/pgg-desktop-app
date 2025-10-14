@@ -4,12 +4,17 @@ import platform
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Union
+import numpy as np
 from domain.camera_info import CameraInfo
 from domain.recording_session import RecordingSession
 from utils.realsense_camera import RealSenseCameraRecorder
 from utils.zed_camera import ZedCameraRecorder
 from utils.zed_camera_sdk import ZedCameraSDKRecorder
+from utils.calibration_loader import CalibrationLoader
 from config import DEBUG_MODE, VIDEO_SECS, FPS, START_RECORDING_DELAY, BASE_DIR
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class CameraRecordingOrchestrator:
@@ -42,9 +47,12 @@ class CameraRecordingOrchestrator:
         duration_secs: int = VIDEO_SECS,
         recording_delay: int = START_RECORDING_DELAY,
         fps: int = FPS,
+        calibration_path: Optional[Union[str, Path]] = None,
     ):
         """
         Initialize camera recording orchestrator.
+
+        Implements Scenario 9.1: Load camera calibration at orchestrator initialization
 
         Args:
             cameras: List of CameraInfo objects for specialized cameras
@@ -52,6 +60,7 @@ class CameraRecordingOrchestrator:
             duration_secs: Recording duration in seconds
             recording_delay: Countdown delay before starting
             fps: Target frame rate for all cameras
+            calibration_path: Optional path to calibration JSON file
         """
         self.cameras = cameras
         self.duration_secs = duration_secs
@@ -78,6 +87,13 @@ class CameraRecordingOrchestrator:
         self.recorders: list[Union[RealSenseCameraRecorder, ZedCameraRecorder, ZedCameraSDKRecorder]] = []
         self.is_recording = False
         self.sync_timestamp: Optional[float] = None
+
+        # Calibration management (Scenario 9.1)
+        self.calibration_loader: Optional[CalibrationLoader] = None
+        self.calibration_loaded = False
+
+        if calibration_path:
+            self._load_calibration(calibration_path)
 
     def initialize_cameras(self) -> tuple[int, int]:
         """
@@ -419,7 +435,7 @@ class CameraRecordingOrchestrator:
                     # Scenario: Verify CUDA compute capability
                     if cls._compute_capability < 5.0:
                         if DEBUG_MODE:
-                            print(f"  ⚠ Compute capability {cls._compute_capability} < 5.0 (minimum required)")
+                            print(f"  Compute capability {cls._compute_capability} < 5.0 (minimum required)")
                             print("  GPU mode disabled, using CPU fallback")
                         cls._gpu_available_cache = False
                         return False
@@ -427,18 +443,18 @@ class CameraRecordingOrchestrator:
                     # Scenario: Verify minimum VRAM requirements
                     if cls._vram_gb < 4.0:
                         if DEBUG_MODE:
-                            print(f"  ⚠ VRAM {cls._vram_gb:.2f} GB < 4 GB (recommended minimum)")
+                            print(f"  VRAM {cls._vram_gb:.2f} GB < 4 GB (recommended minimum)")
                             print("  GPU mode will be attempted, but some features may be disabled")
                         # Note: Still attempt GPU mode, but with warning
 
             except ImportError:
                 # PyTorch not installed, can't check VRAM/compute capability
                 if DEBUG_MODE:
-                    print("  ⚠ PyTorch not installed, cannot verify VRAM/compute capability")
+                    print("  PyTorch not installed, cannot verify VRAM/compute capability")
                 return False
             except Exception as e:
                 if DEBUG_MODE:
-                    print(f"  ⚠ Could not check GPU properties: {e}")
+                    print(f"  Could not check GPU properties: {e}")
                 return False
 
             # Test GPU availability with camera initialization
@@ -457,14 +473,14 @@ class CameraRecordingOrchestrator:
                 cls._gpu_available_cache = True
 
                 if DEBUG_MODE:
-                    print("  ✓ NVIDIA GPU detected with CUDA support")
+                    print("  NVIDIA GPU detected with CUDA support")
 
                     # Try to get GPU information
                     try:
                         # Get device properties if available
                         if devices:
                             for device in devices:
-                                print(f"  ✓ GPU Device: {device.camera_model}")
+                                print(f"  GPU Device: {device.camera_model}")
                     except Exception:
                         pass
 
@@ -473,11 +489,11 @@ class CameraRecordingOrchestrator:
                     # If depth mode works, cuDNN is likely available
                     cls._cudnn_available = True
                     if DEBUG_MODE:
-                        print("  ✓ cuDNN library detected (depth computation available)")
+                        print("  cuDNN library detected (depth computation available)")
                 except Exception:
                     cls._cudnn_available = False
                     if DEBUG_MODE:
-                        print("  ⚠ cuDNN library not detected")
+                        print("  cuDNN library not detected")
 
                 # Check TensorRT availability (for AI features)
                 try:
@@ -486,17 +502,17 @@ class CameraRecordingOrchestrator:
                     test_obj_params = sl.ObjectDetectionParameters()
                     cls._tensorrt_available = True
                     if DEBUG_MODE:
-                        print("  ✓ TensorRT detected (AI features available)")
+                        print("  TensorRT detected (AI features available)")
                 except Exception:
                     cls._tensorrt_available = False
                     if DEBUG_MODE:
-                        print("  ⚠ TensorRT not detected (AI features disabled)")
+                        print("  TensorRT not detected (AI features disabled)")
 
                 return True
             else:
                 cls._gpu_available_cache = False
                 if DEBUG_MODE:
-                    print(f"  ✗ GPU initialization failed: {err}")
+                    print(f"  GPU initialization failed: {err}")
                     print("  Using CPU fallback")
                 return False
 
@@ -504,7 +520,7 @@ class CameraRecordingOrchestrator:
             # Zed SDK not installed
             cls._gpu_available_cache = False
             if DEBUG_MODE:
-                print("  ✗ Zed SDK (pyzed) not installed")
+                print("  Zed SDK (pyzed) not installed")
                 print("  Using CPU fallback")
             return False
 
@@ -512,9 +528,154 @@ class CameraRecordingOrchestrator:
             # Any other exception during GPU check
             cls._gpu_available_cache = False
             if DEBUG_MODE:
-                print(f"  ✗ GPU detection failed: {e}")
+                print(f"  GPU detection failed: {e}")
                 print("  Using CPU fallback")
             return False
+
+    def _load_calibration(self, calibration_path: Union[str, Path]):
+        """
+        Load camera calibration from file.
+
+        Implements Scenario 9.1: Load camera calibration at orchestrator initialization
+
+        Args:
+            calibration_path: Path to calibration JSON file
+        """
+        try:
+            self.calibration_loader = CalibrationLoader(
+                calibration_path=Path(calibration_path)
+            )
+
+            if self.calibration_loader.is_valid():
+                self.calibration_loaded = True
+
+                calib_info = self.calibration_loader.get_calibration_info()
+
+                if DEBUG_MODE:
+                    logger.info("Calibration loaded successfully")
+                    logger.info(f"  Reference camera: {calib_info['reference_camera']}")
+                    logger.info(f"  Calibrated cameras: {', '.join(calib_info['camera_ids'])}")
+                    logger.info(f"  Calibration age: {calib_info['age_days']} days")
+                    logger.info(f"  Quality: {calib_info['quality']}")
+
+                # Check for warnings
+                if self.calibration_loader.has_warnings():
+                    for warning in self.calibration_loader.get_warnings():
+                        logger.warning(f"{warning}")
+
+                # Save calibration metadata to session directory
+                self._save_calibration_metadata()
+
+            else:
+                self.calibration_loaded = False
+                errors = self.calibration_loader.get_validation_messages()
+
+                if DEBUG_MODE:
+                    logger.error("Calibration validation failed")
+                    for error in errors:
+                        logger.error(f"  {error}")
+
+        except Exception as e:
+            self.calibration_loaded = False
+            logger.exception(f"Failed to load calibration: {e}")
+
+    def _save_calibration_metadata(self):
+        """Save calibration metadata to session directory."""
+        if not self.calibration_loaded or not self.calibration_loader:
+            return
+
+        try:
+            import json
+
+            calib_info = self.calibration_loader.get_calibration_info()
+
+            # Save transformation matrices
+            transformations = {}
+            camera_ids = calib_info['camera_ids']
+
+            for i, cam_from in enumerate(camera_ids):
+                for cam_to in camera_ids[i+1:]:
+                    T = self.calibration_loader.get_transformation(cam_from, cam_to)
+                    if T is not None:
+                        key = f"{cam_from}_to_{cam_to}"
+                        transformations[key] = T.tolist()
+
+            # Save to session directory
+            metadata_path = self.session.session_dir / "calibration_metadata.json"
+            with open(metadata_path, 'w') as f:
+                json.dump({
+                    "calibration_info": calib_info,
+                    "transformations": transformations
+                }, f, indent=2)
+
+            if DEBUG_MODE:
+                logger.info(f"Calibration metadata saved to: {metadata_path}")
+
+        except Exception as e:
+            logger.warning(f"Failed to save calibration metadata: {e}")
+
+    def get_transformation(self, from_camera: str, to_camera: str) -> Optional[np.ndarray]:
+        """
+        Get transformation matrix from one camera to another.
+
+        Implements Scenario 9.2: Apply transformations during recording session
+
+        Args:
+            from_camera: Source camera ID
+            to_camera: Target camera ID
+
+        Returns:
+            4x4 transformation matrix or None if calibration not loaded
+        """
+        if not self.calibration_loaded or not self.calibration_loader:
+            logger.warning("Calibration not loaded, cannot get transformation")
+            return None
+
+        return self.calibration_loader.get_transformation(from_camera, to_camera)
+
+    def get_camera_intrinsics(self, camera_id: str) -> Optional[dict]:
+        """
+        Get intrinsic calibration parameters for a camera.
+
+        Args:
+            camera_id: Camera identifier
+
+        Returns:
+            Intrinsic parameters dict or None if not available
+        """
+        if not self.calibration_loaded or not self.calibration_loader:
+            logger.warning("Calibration not loaded, cannot get intrinsics")
+            return None
+
+        intrinsics = self.calibration_loader.get_intrinsics(camera_id)
+        if intrinsics:
+            return {
+                "camera_matrix": intrinsics.camera_matrix.tolist(),
+                "dist_coeffs": intrinsics.dist_coeffs.tolist(),
+                "image_size": intrinsics.image_size
+            }
+        return None
+
+    def get_calibration_status(self) -> dict:
+        """
+        Get calibration status information.
+
+        Returns:
+            Dictionary with calibration status
+        """
+        if not self.calibration_loaded or not self.calibration_loader:
+            return {
+                "loaded": False,
+                "valid": False,
+                "message": "No calibration loaded"
+            }
+
+        return {
+            "loaded": True,
+            "valid": self.calibration_loader.is_valid(),
+            "info": self.calibration_loader.get_calibration_info(),
+            "warnings": self.calibration_loader.get_warnings() if self.calibration_loader.has_warnings() else []
+        }
 
     @classmethod
     def get_gpu_info(cls) -> dict:

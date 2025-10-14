@@ -286,11 +286,11 @@ class ZedCameraSDKRecorder:
 
             if err != sl.ERROR_CODE.SUCCESS:
                 if DEBUG_MODE:
-                    print(f"  ✗ Zed SDK initialization failed: {err}")
+                    print(f"  Zed SDK initialization failed: {err}")
                 return False
 
             if DEBUG_MODE:
-                print("  ✓ Zed camera opened successfully")
+                print("  Zed camera opened successfully")
 
             # Enable GPU features
             enabled_features = []
@@ -301,7 +301,7 @@ class ZedCameraSDKRecorder:
                     enabled_features.append("Positional Tracking")
                 else:
                     if DEBUG_MODE:
-                        print("  ⚠ Positional tracking initialization failed")
+                        print("  Positional tracking initialization failed")
 
             # Enable spatial mapping
             if self.enable_spatial_mapping:
@@ -309,7 +309,7 @@ class ZedCameraSDKRecorder:
                     enabled_features.append("Spatial Mapping")
                 else:
                     if DEBUG_MODE:
-                        print("  ⚠ Spatial mapping initialization failed")
+                        print("  Spatial mapping initialization failed")
 
             # Enable object detection
             if self.enable_object_detection:
@@ -317,7 +317,7 @@ class ZedCameraSDKRecorder:
                     enabled_features.append("Object Detection")
                 else:
                     if DEBUG_MODE:
-                        print("  ⚠ Object detection initialization failed")
+                        print("  Object detection initialization failed")
 
             # Enable body tracking
             if self.enable_body_tracking:
@@ -325,7 +325,7 @@ class ZedCameraSDKRecorder:
                     enabled_features.append("Body Tracking")
                 else:
                     if DEBUG_MODE:
-                        print("  ⚠ Body tracking initialization failed")
+                        print("  Body tracking initialization failed")
 
             # Enable SVO recording
             if self.enable_svo_recording:
@@ -333,22 +333,22 @@ class ZedCameraSDKRecorder:
                     enabled_features.append("SVO Recording")
                 else:
                     if DEBUG_MODE:
-                        print("  ⚠ SVO recording initialization failed")
+                        print("  SVO recording initialization failed")
 
             if DEBUG_MODE:
                 if enabled_features:
-                    print(f"  ✓ Enabled GPU features: {', '.join(enabled_features)}")
-                print(f"  ✓ Zed camera initialized with GPU features")
+                    print(f"  Enabled GPU features: {', '.join(enabled_features)}")
+                print(f"  Zed camera initialized with GPU features")
 
             return True
 
         except ImportError:
             if DEBUG_MODE:
-                print("  ✗ Zed SDK not available")
+                print("  Zed SDK not available")
             return False
         except Exception as e:
             if DEBUG_MODE:
-                print(f"  ✗ Failed to initialize Zed with GPU: {e}")
+                print(f"  Failed to initialize Zed with GPU: {e}")
             return False
 
     def _enable_positional_tracking(self) -> bool:
@@ -375,13 +375,13 @@ class ZedCameraSDKRecorder:
             if self.tracking_enable_imu_fusion:
                 tracking_params.enable_imu_fusion = True
                 if DEBUG_MODE:
-                    print("  ✓ IMU fusion enabled for positional tracking")
+                    print("  IMU fusion enabled for positional tracking")
 
             # Scenario 5: Enable area memory
             if self.tracking_enable_area_memory:
                 tracking_params.enable_area_memory = True
                 if DEBUG_MODE:
-                    print("  ✓ Area memory enabled for loop closure")
+                    print("  Area memory enabled for loop closure")
 
             if DEBUG_MODE:
                 camera_mode = "static" if self.tracking_set_as_static else "moving"
@@ -397,7 +397,7 @@ class ZedCameraSDKRecorder:
                 return True
             else:
                 if DEBUG_MODE:
-                    print(f"  ✗ Positional tracking failed: {err}")
+                    print(f"  Positional tracking failed: {err}")
                 return False
 
         except Exception as e:
@@ -430,12 +430,12 @@ class ZedCameraSDKRecorder:
 
                     if vram_gb < 3.0:
                         if DEBUG_MODE:
-                            print(f"  ⚠ Spatial mapping disabled: GPU VRAM ({vram_gb:.2f} GB) < 3 GB required")
+                            print(f"  Spatial mapping disabled: GPU VRAM ({vram_gb:.2f} GB) < 3 GB required")
                             print(f"  Recording will continue without spatial mapping")
                         return False
             except ImportError:
                 if DEBUG_MODE:
-                    print(f"  ⚠ Cannot verify VRAM (PyTorch not available), attempting spatial mapping anyway")
+                    print(f"  Cannot verify VRAM (PyTorch not available), attempting spatial mapping anyway")
 
             # Scenario: Create spatial mapping parameters
             mapping_params = sl.SpatialMappingParameters()
@@ -473,11 +473,11 @@ class ZedCameraSDKRecorder:
 
             if err == sl.ERROR_CODE.SUCCESS:
                 if DEBUG_MODE:
-                    print(f"  ✓ Spatial mapping enabled")
+                    print(f"  Spatial mapping enabled")
                 return True
             else:
                 if DEBUG_MODE:
-                    print(f"  ✗ Spatial mapping failed: {err}")
+                    print(f"  Spatial mapping failed: {err}")
                 return False
 
         except Exception as e:
@@ -545,7 +545,7 @@ class ZedCameraSDKRecorder:
 
             if err == sl.ERROR_CODE.SUCCESS:
                 if DEBUG_MODE:
-                    print(f"  ✓ Object detection enabled")
+                    print(f"  Object detection enabled")
 
                 # Create detections CSV file
                 if self.detections_file is None:
@@ -554,7 +554,7 @@ class ZedCameraSDKRecorder:
                 return True
             else:
                 if DEBUG_MODE:
-                    print(f"  ✗ Object detection failed: {err}")
+                    print(f"  Object detection failed: {err}")
                     print(f"  Ensure TensorRT is installed and GPU supports AI models")
                 return False
 
@@ -640,7 +640,7 @@ class ZedCameraSDKRecorder:
 
             if err == sl.ERROR_CODE.SUCCESS:
                 if DEBUG_MODE:
-                    print(f"  ✓ Body tracking enabled")
+                    print(f"  Body tracking enabled")
 
                 # Create body tracking CSV file
                 if self.body_tracking_file is None:
@@ -649,7 +649,7 @@ class ZedCameraSDKRecorder:
                 return True
             else:
                 if DEBUG_MODE:
-                    print(f"  ✗ Body tracking failed: {err}")
+                    print(f"  Body tracking failed: {err}")
                     print(f"  Ensure TensorRT is installed and GPU supports AI models")
                 return False
 
@@ -713,13 +713,13 @@ class ZedCameraSDKRecorder:
                 # Store SVO path for later verification
                 self.svo_filepath = svo_path
                 if DEBUG_MODE:
-                    print(f"  ✓ SVO recording enabled: {svo_filename}")
+                    print(f"  SVO recording enabled: {svo_filename}")
                     print(f"  SVO will contain: left/right images, IMU data, camera params, timestamps")
                 return True
             else:
                 # Scenario 12: Handle enable_recording failure
                 if DEBUG_MODE:
-                    print(f"  ✗ SVO recording failed: {err}")
+                    print(f"  SVO recording failed: {err}")
                     print(f"  Recording will continue without SVO")
                 return False
 
@@ -890,7 +890,7 @@ class ZedCameraSDKRecorder:
                         raise Exception("Failed to open depth video writer")
 
                     if DEBUG_MODE:
-                        print(f"  ✓ Created depth video writer: {depth_filename}")
+                        print(f"  Created depth video writer: {depth_filename}")
                         print(f"    - Resolution: {self.single_width}x{self.height}")
                         print(f"    - FPS: {self.fps}")
                         print(f"    - Codec: {codecs_to_try[0]}")
@@ -899,7 +899,7 @@ class ZedCameraSDKRecorder:
                     # Scenario: Handle depth writer creation failure
                     self.depth_writer = None
                     if DEBUG_MODE:
-                        print(f"  ⚠ Error creating depth video writer: {e}")
+                        print(f"  Error creating depth video writer: {e}")
                         print(f"  Recording will continue without depth video")
                     # Don't raise - continue recording without depth video
 
@@ -920,12 +920,12 @@ class ZedCameraSDKRecorder:
                         raise Exception("Failed to open disparity video writer")
 
                     if DEBUG_MODE:
-                        print(f"  ✓ Created disparity video writer: {disparity_filename}")
+                        print(f"  Created disparity video writer: {disparity_filename}")
 
                 except Exception as e:
                     self.disparity_writer = None
                     if DEBUG_MODE:
-                        print(f"  ⚠ Error creating disparity video writer: {e}")
+                        print(f"  Error creating disparity video writer: {e}")
                         print(f"  Recording will continue without disparity video")
 
             # Scenario: Generate confidence map (scenario-2 main scenario 12)
@@ -945,20 +945,20 @@ class ZedCameraSDKRecorder:
                         raise Exception("Failed to open confidence video writer")
 
                     if DEBUG_MODE:
-                        print(f"  ✓ Created confidence video writer: {confidence_filename}")
+                        print(f"  Created confidence video writer: {confidence_filename}")
 
                 except Exception as e:
                     self.confidence_writer = None
                     if DEBUG_MODE:
-                        print(f"  ⚠ Error creating confidence video writer: {e}")
+                        print(f"  Error creating confidence video writer: {e}")
                         print(f"  Recording will continue without confidence video")
 
             if DEBUG_MODE:
-                print(f"  ✓ Created video writers for camera #{self.camera_info.index}")
+                print(f"  Created video writers for camera #{self.camera_info.index}")
 
         except Exception as e:
             if DEBUG_MODE:
-                print(f"  ✗ Error creating video writers: {e}")
+                print(f"  Error creating video writers: {e}")
             raise
 
     def _create_trajectory_file(self):
@@ -988,12 +988,12 @@ class ZedCameraSDKRecorder:
             self.trajectory_file.flush()
 
             if DEBUG_MODE:
-                print(f"  ✓ Created trajectory CSV file: {trajectory_filename}")
+                print(f"  Created trajectory CSV file: {trajectory_filename}")
 
         except Exception as e:
             self.trajectory_file = None
             if DEBUG_MODE:
-                print(f"  ⚠ Error creating trajectory CSV file: {e}")
+                print(f"  Error creating trajectory CSV file: {e}")
                 print(f"  Recording will continue without trajectory data")
 
     def _create_detections_file(self):
@@ -1025,12 +1025,12 @@ class ZedCameraSDKRecorder:
             self.detections_file.flush()
 
             if DEBUG_MODE:
-                print(f"  ✓ Created detections CSV file: {detections_filename}")
+                print(f"  Created detections CSV file: {detections_filename}")
 
         except Exception as e:
             self.detections_file = None
             if DEBUG_MODE:
-                print(f"  ⚠ Error creating detections CSV file: {e}")
+                print(f"  Error creating detections CSV file: {e}")
                 print(f"  Recording will continue without object detection data")
 
     def _create_body_tracking_file(self):
@@ -1062,12 +1062,12 @@ class ZedCameraSDKRecorder:
             self.body_tracking_file.flush()
 
             if DEBUG_MODE:
-                print(f"  ✓ Created body tracking CSV file: {body_filename}")
+                print(f"  Created body tracking CSV file: {body_filename}")
 
         except Exception as e:
             self.body_tracking_file = None
             if DEBUG_MODE:
-                print(f"  ⚠ Error creating body tracking CSV file: {e}")
+                print(f"  Error creating body tracking CSV file: {e}")
                 print(f"  Recording will continue without body tracking data")
 
     def _create_planes_file(self):
@@ -1099,12 +1099,12 @@ class ZedCameraSDKRecorder:
             self.planes_file.flush()
 
             if DEBUG_MODE:
-                print(f"  ✓ Created planes CSV file: {planes_filename}")
+                print(f"  Created planes CSV file: {planes_filename}")
 
         except Exception as e:
             self.planes_file = None
             if DEBUG_MODE:
-                print(f"  ⚠ Error creating planes CSV file: {e}")
+                print(f"  Error creating planes CSV file: {e}")
                 print(f"  Recording will continue without plane detection data")
 
     def _create_fused_imu_file(self):
@@ -1136,12 +1136,12 @@ class ZedCameraSDKRecorder:
             self.imu_fused_file.flush()
 
             if DEBUG_MODE:
-                print(f"  ✓ Created fused IMU CSV file: {imu_fused_filename}")
+                print(f"  Created fused IMU CSV file: {imu_fused_filename}")
 
         except Exception as e:
             self.imu_fused_file = None
             if DEBUG_MODE:
-                print(f"  ⚠ Error creating fused IMU CSV file: {e}")
+                print(f"  Error creating fused IMU CSV file: {e}")
                 print(f"  Recording will continue without fused IMU data")
 
     def _recording_loop(self):
@@ -1360,13 +1360,13 @@ class ZedCameraSDKRecorder:
                         elif tracking_state == sl.POSITIONAL_TRACKING_STATE.SEARCHING:
                             # Tracking temporarily lost, attempting to relocalize
                             if DEBUG_MODE and self.frame_count % 30 == 0:
-                                print(f"  ⚠ Tracking searching (attempting to relocalize)")
+                                print(f"  Tracking searching (attempting to relocalize)")
 
                         # Scenario 9: Handle tracking state OFF
                         elif tracking_state == sl.POSITIONAL_TRACKING_STATE.OFF:
                             # Tracking failed or disabled
                             if DEBUG_MODE and self.frame_count % 30 == 0:
-                                print(f"  ⚠ Tracking OFF (no pose data available)")
+                                print(f"  Tracking OFF (no pose data available)")
 
                     except Exception as e:
                         if DEBUG_MODE:
@@ -1522,7 +1522,7 @@ class ZedCameraSDKRecorder:
                         # Threshold: 5 GB for SVO recording (can fill quickly)
                         if available_gb < 5.0:
                             if DEBUG_MODE:
-                                print(f"  ⚠ Low disk space: {available_gb:.1f} GB available")
+                                print(f"  Low disk space: {available_gb:.1f} GB available")
                                 print(f"  SVO recording may fail if disk becomes full")
                         elif available_gb < 10.0 and DEBUG_MODE and self.frame_count % 1800 == 0:
                             # Less urgent warning at 10GB threshold, log less frequently
@@ -1560,7 +1560,7 @@ class ZedCameraSDKRecorder:
                             # Scenario: if FPS drops below threshold, a warning should be logged
                             if current_fps < self.fps_warning_threshold:
                                 if DEBUG_MODE:
-                                    print(f"  ⚠ Warning: FPS ({current_fps:.1f}) below threshold ({self.fps_warning_threshold})")
+                                    print(f"  Warning: FPS ({current_fps:.1f}) below threshold ({self.fps_warning_threshold})")
 
                     self.last_frame_time = frame_time
 
@@ -1621,21 +1621,21 @@ class ZedCameraSDKRecorder:
             self.depth_writer.release()
             self.depth_writer = None
             if DEBUG_MODE:
-                print(f"  ✓ Released depth video writer")
+                print(f"  Released depth video writer")
 
         # Scenario 11: Release disparity writer on cleanup
         if self.disparity_writer:
             self.disparity_writer.release()
             self.disparity_writer = None
             if DEBUG_MODE:
-                print(f"  ✓ Released disparity video writer")
+                print(f"  Released disparity video writer")
 
         # Scenario 12: Release confidence writer on cleanup
         if self.confidence_writer:
             self.confidence_writer.release()
             self.confidence_writer = None
             if DEBUG_MODE:
-                print(f"  ✓ Released confidence video writer")
+                print(f"  Released confidence video writer")
 
         # Close data files
         if self.imu_file:
@@ -1647,35 +1647,35 @@ class ZedCameraSDKRecorder:
             self.trajectory_file.close()
             self.trajectory_file = None
             if DEBUG_MODE:
-                print(f"  ✓ Closed trajectory CSV file")
+                print(f"  Closed trajectory CSV file")
 
         # Scenario 19: Close detections CSV on cleanup (scenario-6-feature-1)
         if self.detections_file:
             self.detections_file.close()
             self.detections_file = None
             if DEBUG_MODE:
-                print(f"  ✓ Closed detections CSV file")
+                print(f"  Closed detections CSV file")
 
         # Scenario 19: Close body tracking CSV on cleanup (scenario-7-feature-1)
         if self.body_tracking_file:
             self.body_tracking_file.close()
             self.body_tracking_file = None
             if DEBUG_MODE:
-                print(f"  ✓ Closed body tracking CSV file")
+                print(f"  Closed body tracking CSV file")
 
         # Scenario 20: Close planes CSV on cleanup (scenario-8-feature-1)
         if self.planes_file:
             self.planes_file.close()
             self.planes_file = None
             if DEBUG_MODE:
-                print(f"  ✓ Closed planes CSV file")
+                print(f"  Closed planes CSV file")
 
         # Scenario 19: Close fused IMU CSV on cleanup (scenario-9-feature-1)
         if self.imu_fused_file:
             self.imu_fused_file.close()
             self.imu_fused_file = None
             if DEBUG_MODE:
-                print(f"  ✓ Closed fused IMU CSV file")
+                print(f"  Closed fused IMU CSV file")
 
         # Disable GPU features
         if self.camera:
@@ -1689,31 +1689,31 @@ class ZedCameraSDKRecorder:
                     # Scenario 15: Disable spatial mapping during cleanup
                     self.camera.disable_spatial_mapping()
                     if DEBUG_MODE:
-                        print(f"  ✓ Disabled spatial mapping")
+                        print(f"  Disabled spatial mapping")
 
                 # Scenario 19: Disable object detection during cleanup (scenario-6 main and feature-1)
                 if self.enable_object_detection:
                     self.camera.disable_object_detection()
                     if DEBUG_MODE:
-                        print(f"  ✓ Disabled object detection")
+                        print(f"  Disabled object detection")
 
                 # Scenario 21: Disable body tracking during cleanup (scenario-7 main and feature-1)
                 if self.enable_body_tracking:
                     self.camera.disable_body_tracking()
                     if DEBUG_MODE:
-                        print(f"  ✓ Disabled body tracking")
+                        print(f"  Disabled body tracking")
 
                 # Scenario 20: Disable tracking during cleanup (scenario-4 main)
                 if self.enable_positional_tracking:
                     self.camera.disable_positional_tracking()
                     if DEBUG_MODE:
-                        print(f"  ✓ Disabled positional tracking")
+                        print(f"  Disabled positional tracking")
 
                 # Scenario 8: Disable SVO recording after capture (scenario-10 main and feature-1)
                 if self.enable_svo_recording:
                     self.camera.disable_recording()
                     if DEBUG_MODE:
-                        print(f"  ✓ Disabled SVO recording")
+                        print(f"  Disabled SVO recording")
                         print(f"  SVO file finalized and ready for replay")
 
                     # Scenario 13: Verify SVO file integrity after recording (scenario-10-feature-1)
@@ -1722,18 +1722,18 @@ class ZedCameraSDKRecorder:
                         if os.path.exists(self.svo_filepath):
                             file_size_mb = os.path.getsize(self.svo_filepath) / (1024 * 1024)
                             if DEBUG_MODE:
-                                print(f"  ✓ SVO file verified: {self.svo_filepath.name}")
+                                print(f"  SVO file verified: {self.svo_filepath.name}")
                                 print(f"  SVO file size: {file_size_mb:.1f} MB")
                         else:
                             if DEBUG_MODE:
-                                print(f"  ⚠ SVO file not found at expected path")
+                                print(f"  SVO file not found at expected path")
 
                 self.camera.close()
                 self.camera = None
 
             except Exception as e:
                 if DEBUG_MODE:
-                    print(f"  ⚠ Error during cleanup: {e}")
+                    print(f"  Error during cleanup: {e}")
 
     def _colorize_depth(self, depth_values: np.ndarray, valid_mask: np.ndarray) -> np.ndarray:
         """
@@ -1882,12 +1882,12 @@ class ZedCameraSDKRecorder:
             # Scenario 12: Verify point cloud quality
             if point_count < 1000:
                 if DEBUG_MODE:
-                    print(f"  ⚠ Point cloud quality low: only {point_count} valid points")
+                    print(f"  Point cloud quality low: only {point_count} valid points")
                 # Continue anyway, but log warning
 
             if point_count > 10_000_000:
                 if DEBUG_MODE:
-                    print(f"  ⚠ Point cloud very large: {point_count} points")
+                    print(f"  Point cloud very large: {point_count} points")
 
             # Generate filename with appropriate extension
             file_ext = self.point_cloud_format.lower()
@@ -1926,7 +1926,7 @@ class ZedCameraSDKRecorder:
             # Scenario 7: Calculate point cloud size
             if DEBUG_MODE:
                 file_size_mb = full_path.stat().st_size / (1024 * 1024)
-                print(f"  ✓ Exported point cloud #{frame_number:04d}: {pc_filename}")
+                print(f"  Exported point cloud #{frame_number:04d}: {pc_filename}")
                 print(f"    - Format: {self.point_cloud_format}")
                 print(f"    - Point count: {point_count:,}")
                 print(f"    - File size: {file_size_mb:.1f} MB")
@@ -2555,11 +2555,11 @@ class ZedCameraSDKRecorder:
             # Handle mesh extraction failure
             if err != sl.ERROR_CODE.SUCCESS:
                 if DEBUG_MODE:
-                    print(f"  ✗ Mesh extraction failed: {err}")
+                    print(f"  Mesh extraction failed: {err}")
                 return
 
             if DEBUG_MODE:
-                print(f"  ✓ Mesh extracted successfully")
+                print(f"  Mesh extracted successfully")
 
             # Scenario 13: Get mesh statistics
             nb_vertices = mesh.get_number_of_vertices()
@@ -2573,7 +2573,7 @@ class ZedCameraSDKRecorder:
             # Check if mesh is empty
             if nb_vertices == 0 or nb_triangles == 0:
                 if DEBUG_MODE:
-                    print(f"  ⚠ Mesh is empty, skipping save")
+                    print(f"  Mesh is empty, skipping save")
                 return
 
             # Scenario 9: Apply mesh filtering
@@ -2583,7 +2583,7 @@ class ZedCameraSDKRecorder:
             mesh.filter(sl.MESH_FILTER.LOW)
 
             if DEBUG_MODE:
-                print(f"  ✓ Mesh filtered (artifacts removed)")
+                print(f"  Mesh filtered (artifacts removed)")
 
             # Save mesh in requested formats
             for mesh_format in self.mapping_mesh_formats:
@@ -2593,7 +2593,7 @@ class ZedCameraSDKRecorder:
                     self._save_mesh_ply(mesh)
                 else:
                     if DEBUG_MODE:
-                        print(f"  ⚠ Unknown mesh format: {mesh_format}")
+                        print(f"  Unknown mesh format: {mesh_format}")
 
         except Exception as e:
             # Scenario: Handle mesh extraction failure
@@ -2626,7 +2626,7 @@ class ZedCameraSDKRecorder:
 
             if err == sl.ERROR_CODE.SUCCESS:
                 if DEBUG_MODE:
-                    print(f"  ✓ Saved mesh: {mesh_filename}")
+                    print(f"  Saved mesh: {mesh_filename}")
 
                     # Check what files were created
                     if mesh_path.exists():
@@ -2651,7 +2651,7 @@ class ZedCameraSDKRecorder:
                 self._verify_mesh_integrity(mesh, mesh_path)
             else:
                 if DEBUG_MODE:
-                    print(f"  ✗ Failed to save OBJ mesh: {err}")
+                    print(f"  Failed to save OBJ mesh: {err}")
 
         except Exception as e:
             if DEBUG_MODE:
@@ -2680,10 +2680,10 @@ class ZedCameraSDKRecorder:
             if err == sl.ERROR_CODE.SUCCESS:
                 if DEBUG_MODE:
                     file_size_mb = mesh_path.stat().st_size / (1024 * 1024)
-                    print(f"  ✓ Saved PLY mesh: {mesh_filename} ({file_size_mb:.1f} MB)")
+                    print(f"  Saved PLY mesh: {mesh_filename} ({file_size_mb:.1f} MB)")
             else:
                 if DEBUG_MODE:
-                    print(f"  ✗ Failed to save PLY mesh: {err}")
+                    print(f"  Failed to save PLY mesh: {err}")
 
         except Exception as e:
             if DEBUG_MODE:
@@ -2715,41 +2715,41 @@ class ZedCameraSDKRecorder:
 
             # Scenario: .obj file should be valid and openable
             if not mesh_path.exists():
-                print(f"  ✗ OBJ file not found: {mesh_path}")
+                print(f"  OBJ file not found: {mesh_path}")
                 return False
 
             file_size = mesh_path.stat().st_size
             if file_size == 0:
-                print(f"  ✗ OBJ file is empty")
+                print(f"  OBJ file is empty")
                 return False
 
-            print(f"  ✓ OBJ file exists and has content ({file_size / (1024*1024):.2f} MB)")
+            print(f"  OBJ file exists and has content ({file_size / (1024*1024):.2f} MB)")
 
             # Scenario: Vertex count should match expected range
             nb_vertices = mesh.get_number_of_vertices()
             if nb_vertices < 100:
-                print(f"  ⚠ Warning: Very few vertices ({nb_vertices}) - mesh may be incomplete")
+                print(f"  Warning: Very few vertices ({nb_vertices}) - mesh may be incomplete")
             elif nb_vertices > 50_000_000:
-                print(f"  ⚠ Warning: Extremely high vertex count ({nb_vertices:,}) - may cause memory issues")
+                print(f"  Warning: Extremely high vertex count ({nb_vertices:,}) - may cause memory issues")
             else:
-                print(f"  ✓ Vertex count is reasonable: {nb_vertices:,}")
+                print(f"  Vertex count is reasonable: {nb_vertices:,}")
 
             # Scenario: Triangle count should be reasonable
             nb_triangles = mesh.get_number_of_triangles()
             if nb_triangles < 100:
-                print(f"  ⚠ Warning: Very few triangles ({nb_triangles}) - mesh may be incomplete")
+                print(f"  Warning: Very few triangles ({nb_triangles}) - mesh may be incomplete")
             elif nb_triangles > 100_000_000:
-                print(f"  ⚠ Warning: Extremely high triangle count ({nb_triangles:,}) - may cause memory issues")
+                print(f"  Warning: Extremely high triangle count ({nb_triangles:,}) - may cause memory issues")
             else:
-                print(f"  ✓ Triangle count is reasonable: {nb_triangles:,}")
+                print(f"  Triangle count is reasonable: {nb_triangles:,}")
 
             # Check vertex/triangle ratio (typically 2:1 for closed meshes)
             if nb_vertices > 0 and nb_triangles > 0:
                 ratio = nb_triangles / nb_vertices
                 if ratio < 0.5 or ratio > 4.0:
-                    print(f"  ⚠ Warning: Unusual vertex/triangle ratio ({ratio:.2f}) - typical is ~2.0")
+                    print(f"  Warning: Unusual vertex/triangle ratio ({ratio:.2f}) - typical is ~2.0")
                 else:
-                    print(f"  ✓ Vertex/triangle ratio is good: {ratio:.2f}")
+                    print(f"  Vertex/triangle ratio is good: {ratio:.2f}")
 
             # Scenario: Texture should be properly UV-mapped (if enabled)
             if self.mapping_save_texture:
@@ -2759,16 +2759,16 @@ class ZedCameraSDKRecorder:
                 if texture_path.exists():
                     tex_size = texture_path.stat().st_size / (1024 * 1024)
                     if tex_size > 0.1:  # At least 100KB
-                        print(f"  ✓ Texture file exists and has content ({tex_size:.1f} MB)")
+                        print(f"  Texture file exists and has content ({tex_size:.1f} MB)")
                     else:
-                        print(f"  ⚠ Warning: Texture file is very small ({tex_size:.2f} MB)")
+                        print(f"  Warning: Texture file is very small ({tex_size:.2f} MB)")
                 else:
-                    print(f"  ⚠ Warning: Texture file not found (texture mapping was enabled)")
+                    print(f"  Warning: Texture file not found (texture mapping was enabled)")
 
                 if mtl_path.exists():
-                    print(f"  ✓ Material file (.mtl) exists")
+                    print(f"  Material file (.mtl) exists")
                 else:
-                    print(f"  ⚠ Warning: Material file (.mtl) not found")
+                    print(f"  Warning: Material file (.mtl) not found")
 
             # Basic OBJ file format validation
             try:
@@ -2778,11 +2778,11 @@ class ZedCameraSDKRecorder:
                     has_faces = any(line.startswith('f ') for line in first_lines)
 
                     if has_vertices and has_faces:
-                        print(f"  ✓ OBJ file format appears valid (contains vertices and faces)")
+                        print(f"  OBJ file format appears valid (contains vertices and faces)")
                     else:
-                        print(f"  ⚠ Warning: OBJ file may be malformed (missing v or f entries)")
+                        print(f"  Warning: OBJ file may be malformed (missing v or f entries)")
             except Exception as e:
-                print(f"  ⚠ Warning: Could not validate OBJ format: {e}")
+                print(f"  Warning: Could not validate OBJ format: {e}")
 
             print(f"  === Mesh verification complete ===\n")
             return True

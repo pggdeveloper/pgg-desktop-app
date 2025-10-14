@@ -184,7 +184,7 @@ class VideoScreen(QtWidgets.QWidget):
 
             # Update UI to show recording in progress
             self._update_feedback_signal.emit(
-                "⏺️ Grabando...",
+                "Grabando...",
                 "Success"
             )
 
@@ -197,7 +197,7 @@ class VideoScreen(QtWidgets.QWidget):
 
             # Emit success signal with output directory
             success_message = (
-                f"✔ Grabación completada\n"
+                f"Grabación completada\n"
                 f"Guardado en: {output_dir}"
             )
             self._update_feedback_signal.emit(success_message, "Success")

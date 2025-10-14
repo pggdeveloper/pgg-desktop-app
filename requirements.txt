@@ -7,13 +7,17 @@
 
 #Point cloud conflictivo
 --only-binary=pye57
-pye57==0.4.5
+pye57==0.4.5 ; sys_platform == "win32"
+pye57==0.4.5 ; sys_platform == "linux"
+pye57==0.4.6 ; sys_platform == "darwin"
 
 # ============================================================================
 # GUI Framework
 # ============================================================================
 pyqt5==5.15.11
-pyqt5-qt5==5.15.2
+pyqt5-qt5==5.15.2 ; sys_platform == "win32"
+pyqt5-qt5==5.15.2 ; sys_platform == "linux"
+pyqt5-qt5==5.15.11 ; sys_platform == "darwin"
 pyqt5-sip==12.15.0
 
 # ============================================================================
@@ -44,10 +48,10 @@ pyrealsense2==2.55.1.6486 ; sys_platform == "win32"
 
 # Platform-specific camera access
 pyudev==0.24.3 ; sys_platform == "linux"
-pyobjc==10.3.1 ; sys_platform == "darwin"
-pyobjc-core==10.3.1 ; sys_platform == "darwin"
-pyobjc-framework-AVFoundation==10.3.1 ; sys_platform == "darwin"
-pyobjc-framework-Cocoa==10.3.1 ; sys_platform == "darwin"
+pyobjc==11.1 ; sys_platform == "darwin"
+pyobjc-core==11.1 ; sys_platform == "darwin"
+pyobjc-framework-AVFoundation==11.1 ; sys_platform == "darwin"
+pyobjc-framework-Cocoa==11.1 ; sys_platform == "darwin"
 
 # ============================================================================
 # 3D Processing & Point Clouds

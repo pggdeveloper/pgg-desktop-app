@@ -36,19 +36,19 @@ function Write-Step {
 
 function Write-Success {
     param([string]$Message)
-    Write-Host "✓ " -NoNewline -ForegroundColor Green
+    Write-Host "Success " -NoNewline -ForegroundColor Green
     Write-Host $Message -ForegroundColor Green
 }
 
 function Write-Error-Custom {
     param([string]$Message)
-    Write-Host "✗ " -NoNewline -ForegroundColor Red
+    Write-Host "Error " -NoNewline -ForegroundColor Red
     Write-Host $Message -ForegroundColor Red
 }
 
 function Write-Warning-Custom {
     param([string]$Message)
-    Write-Host "⚠ " -NoNewline -ForegroundColor Yellow
+    Write-Host "Warning " -NoNewline -ForegroundColor Yellow
     Write-Host $Message -ForegroundColor Yellow
 }
 
