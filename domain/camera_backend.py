@@ -11,6 +11,7 @@ class CameraBackend(Enum):
     DSHOW = "DSHOW"           # Windows DirectShow
     AVFOUNDATION = "AVFOUNDATION"  # macOS AVFoundation
     V4L2 = "V4L2"             # Linux Video4Linux2
+    REALSENSE_SDK = "REALSENSE_SDK"  # Intel RealSense SDK (pyrealsense2)
 
     def __str__(self) -> str:
         return self.value

@@ -3,6 +3,7 @@ from constants import APP, THEME
 # from screens.login_screen import LoginScreen
 from screens.capture_screen import CaptureScreen
 from screens.video_screen import VideoScreen
+from screens.camera_diagnostics_screen import CameraDiagnosticsScreen
 
 class MainWindow(QtWidgets.QMainWindow):
     """Orquesta pantallas y almacena session_data tras login."""
@@ -34,16 +35,20 @@ class MainWindow(QtWidgets.QMainWindow):
         # self.login = LoginScreen()
         #self.capture = CaptureScreen()
         self.video_screen = VideoScreen()
+        self.camera_diagnostics_screen = CameraDiagnosticsScreen()
 
         # self.stack.addWidget(self.login)
         #self.stack.addWidget(self.capture)
         self.stack.addWidget(self.video_screen)
+        self.stack.addWidget(self.camera_diagnostics_screen)
 
         self.session_data = None
 
         # self.login.loginSuccess.connect(self._on_login_ok)
 
-        
+        # Connect navigation signals
+        self.video_screen.show_diagnostics_requested.connect(self._show_diagnostics)
+        self.camera_diagnostics_screen.back_to_video.connect(self._show_video)
 
         # Ajustes de estilo global
         self.setStyleSheet(THEME["qss"]["base"])
@@ -61,7 +66,15 @@ class MainWindow(QtWidgets.QMainWindow):
     def closeEvent(self, e: QtGui.QCloseEvent):
         # Limpieza adicional si hiciera falta
         return super().closeEvent(e)
-    
+
+    def _show_diagnostics(self):
+        """Navigate to camera diagnostics screen."""
+        self._crossfade_to(self.camera_diagnostics_screen)
+
+    def _show_video(self):
+        """Navigate back to video screen."""
+        self._crossfade_to(self.video_screen)
+
     def _crossfade_to(self, widget):
         # fade out
         anim_out = QtCore.QPropertyAnimation(self._fade_effect, b"opacity", self)

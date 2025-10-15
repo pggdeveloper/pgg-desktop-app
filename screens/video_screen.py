@@ -9,11 +9,14 @@ from constants import THEME
 from config import DEBUG_MODE
 
 class VideoScreen(QtWidgets.QWidget):
-    """Pantalla de grabación multi-cámara sincronizada."""
+    """Pantalla de grabacion multi-camara sincronizada."""
 
     # Qt signals for thread-safe UI updates
     _update_feedback_signal = QtCore.pyqtSignal(str, str)  # (message, style)
     _enable_button_signal = QtCore.pyqtSignal()
+
+    # Signal to request navigation to diagnostics screen
+    show_diagnostics_requested = QtCore.pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -28,15 +31,26 @@ class VideoScreen(QtWidgets.QWidget):
         card_vertical_layout.setContentsMargins(24, 24, 24, 24)
         card_vertical_layout.setSpacing(16)
 
-        title = QtWidgets.QLabel("Grabación Multi-Cámara", objectName="H1")
-        subtitle = QtWidgets.QLabel("Conecta las cámaras RealSense o Zed y presiona grabar.", objectName="Muted")
+        title = QtWidgets.QLabel("Grabacion Multi-Camara", objectName="H1")
+        subtitle = QtWidgets.QLabel("Conecta las camaras RealSense o Zed y presiona grabar.", objectName="Muted")
 
         # Camera info label to display detected cameras
         self.camera_info_label = QtWidgets.QLabel("", objectName="Muted")
         self.camera_info_label.setVisible(False)
 
+        # Buttons layout
+        buttons_layout = QtWidgets.QHBoxLayout()
+        buttons_layout.setSpacing(8)
+
         self.record_button = AnimatedButton("Grabar")
         self.record_button.clicked.connect(self.record)
+
+        self.diagnostics_button = AnimatedButton("Camera Diagnostics")
+        self.diagnostics_button.clicked.connect(self.show_diagnostics)
+
+        buttons_layout.addWidget(self.record_button)
+        buttons_layout.addWidget(self.diagnostics_button)
+        buttons_layout.addStretch()
 
         self.feedback = QtWidgets.QLabel("")
         self.feedback.setObjectName("Success")
@@ -47,7 +61,7 @@ class VideoScreen(QtWidgets.QWidget):
         card_vertical_layout.addWidget(self.camera_info_label)
         card_vertical_layout.addSpacing(8)
 
-        card_vertical_layout.addWidget(self.record_button, 0, QtCore.Qt.AlignLeft)
+        card_vertical_layout.addLayout(buttons_layout)
         card_vertical_layout.addWidget(self.feedback)
         card_vertical_layout.addStretch(1)
 
@@ -95,10 +109,7 @@ class VideoScreen(QtWidgets.QWidget):
         specialized_cameras = filter_cameras_by_type(cameras, specialized_types)
 
         if not specialized_cameras:
-            self._show_error(
-                "No se encontraron cámaras especializadas (RealSense o Zed).\n"
-                "Conecta al menos una cámara RealSense D455/D455i o Zed 2/2i."
-            )
+            self._show_detailed_error(cameras)
             self.record_button.setDisabled(False)
             return
 
@@ -249,6 +260,40 @@ class VideoScreen(QtWidgets.QWidget):
         self.feedback.setObjectName("Error")
         self.feedback.setText(text)
         self.feedback.setVisible(True)
+
+    def _show_detailed_error(self, cameras: list):
+        """
+        Show enhanced error message with camera list and troubleshooting.
+
+        Args:
+            cameras: List of all detected cameras
+        """
+        error_msg = (
+            "No se encontraron camaras especializadas (RealSense o Zed).\n\n"
+        )
+
+        if cameras:
+            error_msg += f"Camaras detectadas ({len(cameras)}):\n"
+            for cam in cameras:
+                error_msg += f"  - {cam.name}\n"
+                error_msg += f"    Tipo: {cam.camera_type.value}\n"
+                if cam.usb_vid and cam.usb_pid:
+                    error_msg += f"    USB: {cam.usb_vid}:{cam.usb_pid}\n"
+                error_msg += "\n"
+        else:
+            error_msg += "No se detectaron camaras USB.\n\n"
+
+        error_msg += "Verifica que:\n"
+        error_msg += "1. Las camaras RealSense/Zed esten conectadas via USB 3.0\n"
+        error_msg += "2. Los drivers esten instalados (pyrealsense2 para RealSense)\n"
+        error_msg += "3. Las camaras aparezcan en el Administrador de dispositivos\n\n"
+        error_msg += "Haz click en 'Camera Diagnostics' para mas detalles."
+
+        self._show_error(error_msg)
+
+    def show_diagnostics(self):
+        """Navigate to camera diagnostics screen."""
+        self.show_diagnostics_requested.emit()
 
     @QtCore.pyqtSlot(dict)
     def set_session_data(self, data: dict):

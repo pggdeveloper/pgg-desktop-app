@@ -1,5 +1,6 @@
-import os, platform, json, subprocess, re, glob
+import os, platform, json, subprocess, re, glob, time
 from typing import Optional, Union
+from functools import wraps
 import cv2
 from config import DEBUG_MODE
 from domain.camera_type import CameraType
@@ -10,6 +11,60 @@ from domain.camera_info import CameraInfo
 WINDOWS_DEFAULT_BACKEND = cv2.CAP_DSHOW
 MAC_DEFAULT_BACKEND = cv2.CAP_AVFOUNDATION
 LINUX_DEFAULT_BACKEND = cv2.CAP_V4L2
+
+# ---------------- Retry Decorator ----------------
+def retry_with_backoff(max_retries: int = 3, initial_delay: float = 0.5):
+    """
+    Decorator for retry with exponential backoff.
+
+    This decorator wraps functions to automatically retry on failure
+    with increasing delays between attempts (exponential backoff).
+
+    Args:
+        max_retries: Maximum number of retry attempts (default: 3)
+        initial_delay: Initial delay in seconds between retries (default: 0.5)
+
+    Returns:
+        Decorator function
+
+    Example:
+        @retry_with_backoff(max_retries=3, initial_delay=0.5)
+        def unstable_function():
+            # Function that might fail transiently
+            pass
+
+    Notes:
+        - Delay doubles after each retry (exponential backoff)
+        - If all retries fail, raises the last exception
+        - Logs retry attempts if DEBUG_MODE is enabled
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            delay = initial_delay
+            last_exception = None
+
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    last_exception = e
+                    if attempt == max_retries - 1:
+                        # Last attempt failed, re-raise exception
+                        raise
+
+                    if DEBUG_MODE:
+                        print(f"[DEBUG] Retry {attempt + 1}/{max_retries} for {func.__name__} after error: {e}")
+
+                    time.sleep(delay)
+                    delay *= 2  # Exponential backoff
+
+            # Should never reach here, but for safety
+            if last_exception:
+                raise last_exception
+
+        return wrapper
+    return decorator
 
 # ---------------- Patterns ----------------
 VIRTUAL_PATTERNS = (
@@ -79,54 +134,66 @@ def _identify_camera_type(
     Identify camera type based on USB VID/PID and name.
 
     Args:
-        vid: USB Vendor ID (e.g., "0x8086")
-        pid: USB Product ID (e.g., "0x0B5C")
+        vid: USB Vendor ID (e.g., "0x8086" or "8086")
+        pid: USB Product ID (e.g., "0x0B5C" or "0B5C")
         name: Camera device name
 
     Returns:
         CameraType enum value
     """
-    # Normalize VID/PID to lowercase for comparison
-    vid_lower = vid.lower() if vid else ""
-    pid_lower = pid.lower() if pid else ""
+    # Normalize VID/PID: remove 0x prefix and convert to uppercase
+    vid_norm = vid.replace("0x", "").replace("0X", "").upper() if vid else ""
+    pid_norm = pid.replace("0x", "").replace("0X", "").upper() if pid else ""
     name_lower = name.lower()
 
-    # Intel RealSense Detection
-    if vid_lower == "0x8086":
-        # RealSense D455/D455i (same PID, need IMU check)
-        if pid_lower == "0x0b5c":
-            # Cannot distinguish D455 vs D455i from VID/PID alone
-            # Need to check for IMU device or use SDK
-            return CameraType.REALSENSE_D455  # Default to D455
+    # Intel RealSense Detection (Primary: D455i)
+    if vid_norm == "8086":
+        # RealSense D455/D455i (same PID: 0B5C)
+        # Both models use same VID/PID, return D455i as primary
+        if pid_norm == "0B5C":
+            return CameraType.REALSENSE_D455i
 
-        # Other RealSense models (for future expansion)
-        # D435i: 0x0B3A, D435: 0x0B07, L515: 0x0B64, etc.
+        # Other RealSense models not supported in this system
+        # Log warning if other PID detected
 
-    # Stereolabs Zed Detection
-    if vid_lower == "0x2b03":
-        if pid_lower == "0xf882":
+    # Stereolabs ZED Detection (Primary: ZED 2i)
+    if vid_norm == "2B03":
+        # ZED 2i: PIDs F880 (video) and F881 (HID/sensors)
+        if pid_norm in ("F880", "F881"):
             return CameraType.ZED_2i
-        elif pid_lower == "0xf780":
+        # ZED 2: PIDs F780 (video) and F781 (HID/sensors)
+        elif pid_norm in ("F780", "F781"):
             return CameraType.ZED_2
 
     # Name-based fallback detection
     if "realsense" in name_lower:
         if "d455" in name_lower:
-            return CameraType.REALSENSE_D455
-        # Could add other model detection here
+            # Default to D455i for all D455 variants
+            return CameraType.REALSENSE_D455i
+        # Other RealSense models not supported
 
     if "zed" in name_lower:
-        if "2i" in name_lower:
+        # Prefer ZED 2i if version ambiguous
+        if "2i" in name_lower or "zed 2i" in name_lower:
             return CameraType.ZED_2i
-        return CameraType.ZED_2
+        elif "zed 2" in name_lower or "zed2" in name_lower:
+            # Check if it's specifically ZED 2 (not 2i)
+            if "2i" not in name_lower:
+                return CameraType.ZED_2
+        # Default ZED to ZED 2i (primary model)
+        return CameraType.ZED_2i
 
     # Generic camera
     return CameraType.GENERIC
 
 # ---------------- Windows ----------------
+@retry_with_backoff(max_retries=3, initial_delay=0.5)
 def _win_list_usb_cameras_meta() -> list[dict[str, Union[str, bool, None]]]:
     """
     Use PowerShell PnP to list camera/image devices with USB metadata.
+    Implements dual VID/PID extraction (InstanceId + HardwareIds) with timeout.
+
+    This function is wrapped with retry logic to handle transient PowerShell failures.
 
     Returns:
         List of dicts with FriendlyName, InstanceId, VID, PID, etc.
@@ -141,11 +208,23 @@ foreach ($d in $devs) {
   $bus  = (Get-PnpDeviceProperty -InstanceId $id -KeyName 'DEVPKEY_Device_BusReportedDeviceDesc' -ErrorAction SilentlyContinue).Data
   $hwid = (Get-PnpDeviceProperty -InstanceId $id -KeyName 'DEVPKEY_Device_HardwareIds' -ErrorAction SilentlyContinue).Data
 
-  # Extract VID/PID from hardware ID (format: USB\VID_8086&PID_0B5C&...)
-  $vid = ""
-  $pid = ""
-  if ($hwid -match "VID_([0-9A-F]{4})") { $vid = $matches[1] }
-  if ($hwid -match "PID_([0-9A-F]{4})") { $pid = $matches[1] }
+  # Method 1: Extract VID/PID from InstanceId (Primary)
+  # Format: USB\VID_8086&PID_0B5C\...
+  $vid_instance = ""
+  $pid_instance = ""
+  if ($id -match "VID_([0-9A-F]{4})") { $vid_instance = $matches[1] }
+  if ($id -match "PID_([0-9A-F]{4})") { $pid_instance = $matches[1] }
+
+  # Method 2: Extract VID/PID from HardwareIds (Fallback)
+  # Format: USB\VID_8086&PID_0B5C&MI_00
+  $vid_hwid = ""
+  $pid_hwid = ""
+  if ($hwid -match "VID_([0-9A-F]{4})") { $vid_hwid = $matches[1] }
+  if ($hwid -match "PID_([0-9A-F]{4})") { $pid_hwid = $matches[1] }
+
+  # Use InstanceId values if available, otherwise fallback to HardwareIds
+  $vid_final = if ($vid_instance) { $vid_instance } else { $vid_hwid }
+  $pid_final = if ($pid_instance) { $pid_instance } else { $pid_hwid }
 
   $obj = [PSCustomObject]@{
     FriendlyName = $d.FriendlyName
@@ -153,24 +232,38 @@ foreach ($d in $devs) {
     Enumerator   = $enum
     Location     = $loc
     BusDesc      = $bus
-    VID          = $vid
-    PID          = $pid
+    VID          = $vid_final
+    PID          = $pid_final
+    VID_Source   = if ($vid_instance) { "InstanceId" } else { "HardwareIds" }
+    PID_Source   = if ($pid_instance) { "InstanceId" } else { "HardwareIds" }
   }
   $result += $obj
 }
 $result | ConvertTo-Json
 """
     try:
+        # Execute PowerShell with 10 second timeout
         out = subprocess.check_output(
             ["powershell", "-NoProfile", "-Command", ps],
             text=True,
             encoding="utf-8",
-            errors="ignore"
+            errors="ignore",
+            timeout=10
         )
         data = json.loads(out) if out.strip() else []
         if isinstance(data, dict):
             data = [data]
-    except Exception:
+
+        if DEBUG_MODE:
+            print(f"[DEBUG] PowerShell enumerated {len(data)} camera devices")
+
+    except subprocess.TimeoutExpired:
+        if DEBUG_MODE:
+            print("[DEBUG] PowerShell enumeration timeout (10s) - using fallback")
+        data = []
+    except Exception as e:
+        if DEBUG_MODE:
+            print(f"[DEBUG] PowerShell enumeration failed: {e}")
         data = []
 
     # Process and normalize data
@@ -179,36 +272,80 @@ $result | ConvertTo-Json
         vid_raw = d.get("VID", "")
         pid_raw = d.get("PID", "")
 
+        # Normalize to 0xXXXX format consistently
         d["usb_vid"] = f"0x{vid_raw}" if vid_raw else None
         d["usb_pid"] = f"0x{pid_raw}" if pid_raw else None
         d["is_usb"] = (d.get("Enumerator") == "USB") or iid.upper().startswith("USB\\VID_")
         d["is_internal"] = bool(_norm(d.get("Location", "")).lower().find("internal") >= 0) or _looks_internal(d.get("FriendlyName", ""))
         d["is_virtual"] = _looks_virtual(d.get("FriendlyName", ""))
 
+        if DEBUG_MODE and d.get("is_usb"):
+            vid_src = d.get("VID_Source", "unknown")
+            pid_src = d.get("PID_Source", "unknown")
+            print(f"[DEBUG] {d.get('FriendlyName')}: VID={d['usb_vid']} ({vid_src}), PID={d['usb_pid']} ({pid_src})")
+
     # Keep only external USB, non-virtual, non-internal
     filtered = [d for d in data if d.get("is_usb") and not d.get("is_internal") and not d.get("is_virtual")]
+
+    if DEBUG_MODE:
+        print(f"[DEBUG] Filtered to {len(filtered)} external USB cameras")
+
     return filtered
 
 def _win_enumerate_usb(max_test: int = 10) -> list[CameraInfo]:
     """
-    Enumerate USB cameras on Windows.
+    Enumerate USB cameras on Windows with multi-interface deduplication.
+
+    RealSense and ZED cameras expose multiple interfaces (RGB, Depth, HID).
+    This function groups them by VID+PID to return one CameraInfo per physical camera.
 
     Returns:
-        List of CameraInfo objects
+        List of CameraInfo objects (one per physical camera)
     """
     backend = WINDOWS_DEFAULT_BACKEND
     indices = _probe_indices(backend, max_test)
     meta = _win_list_usb_cameras_meta()
 
-    cameras: list[CameraInfo] = []
-    for i, idx in enumerate(indices):
-        # Prefer a meta name if available
-        name = meta[i]["FriendlyName"] if i < len(meta) else f"Camera {idx}"
-        usb_vid = meta[i].get("usb_vid") if i < len(meta) else None
-        usb_pid = meta[i].get("usb_pid") if i < len(meta) else None
-        os_id = meta[i].get("InstanceId") if i < len(meta) else None
+    if DEBUG_MODE:
+        print(f"[DEBUG] Found {len(indices)} OpenCV indices: {indices}")
+        print(f"[DEBUG] Found {len(meta)} PowerShell metadata entries")
 
-        # Create CameraInfo with default values (camera_type will be detected later)
+    # Build initial cameras list with all interfaces
+    all_cameras: list[CameraInfo] = []
+
+    for idx in indices:
+        # Try to find matching metadata by index or name
+        matched_meta = None
+
+        # Simple matching: use position if available
+        if idx < len(meta):
+            matched_meta = meta[idx]
+
+        if matched_meta:
+            name = matched_meta.get("FriendlyName", f"Camera {idx}")
+            usb_vid = matched_meta.get("usb_vid")
+            usb_pid = matched_meta.get("usb_pid")
+            os_id = matched_meta.get("InstanceId")
+
+            if DEBUG_MODE:
+                print(f"[DEBUG] Index {idx}: Matched to '{name}' VID={usb_vid} PID={usb_pid}")
+        else:
+            # No metadata found for this index
+            name = f"Camera {idx}"
+            usb_vid = None
+            usb_pid = None
+            os_id = None
+
+            if DEBUG_MODE:
+                print(f"[DEBUG] Index {idx}: No metadata match, using generic name")
+
+        # Filter virtual/internal by name
+        if _looks_virtual(name) or _looks_internal(name):
+            if DEBUG_MODE:
+                print(f"[DEBUG] Index {idx}: Filtered out (virtual/internal)")
+            continue
+
+        # Create CameraInfo for this interface
         cam = CameraInfo(
             index=idx,
             name=name,
@@ -220,22 +357,81 @@ def _win_enumerate_usb(max_test: int = 10) -> list[CameraInfo]:
             usb_pid=usb_pid,
             os_id=os_id,
         )
-        cameras.append(cam)
+        all_cameras.append(cam)
 
-    # Final name-based filters (virtual/integrated patterns)
-    cameras = [c for c in cameras if not _looks_virtual(c.name) and not _looks_internal(c.name)]
+    if DEBUG_MODE:
+        print(f"[DEBUG] After filtering: {len(all_cameras)} camera interfaces")
 
-    # Deduplicate by index
-    seen: set[int] = set()
-    unique: list[CameraInfo] = []
-    for cam in cameras:
-        if cam.index is not None and cam.index in seen:
+    # Helper function to extract base InstanceId (without &MI_XX interface suffix)
+    def get_base_instance_id(os_id: Optional[str]) -> Optional[str]:
+        """
+        Extract base InstanceId without interface number.
+        Example: USB\VID_2B03&PID_F880&MI_00\Serial123 -> USB\VID_2B03&PID_F880\Serial123
+        """
+        if not os_id:
+            return None
+        # Remove &MI_XX pattern (interface number)
+        import re
+        base_id = re.sub(r'&MI_[0-9A-F]{2}', '', os_id, flags=re.IGNORECASE)
+        return base_id
+
+    # Deduplicate multi-interface cameras by base InstanceId
+    # Key: base_instance_id -> list of CameraInfo objects from same physical camera
+    grouped: dict[Optional[str], list[CameraInfo]] = {}
+    cameras_without_instance_id: list[CameraInfo] = []
+
+    for cam in all_cameras:
+        base_id = get_base_instance_id(cam.os_id)
+        if base_id:
+            if base_id not in grouped:
+                grouped[base_id] = []
+            grouped[base_id].append(cam)
+        else:
+            # Cameras without InstanceId kept separately
+            cameras_without_instance_id.append(cam)
+
+    # For each physical camera, keep only the first interface (lowest index)
+    unique_cameras: list[CameraInfo] = []
+    dedup_count = 0
+
+    for base_id, cam_list in grouped.items():
+        if len(cam_list) > 1:
+            # Multiple interfaces detected - deduplicate
+            # Sort by index and keep the first (usually RGB/Video interface)
+            cam_list.sort(key=lambda c: c.index if c.index is not None else 999)
+            selected = cam_list[0]
+
+            if DEBUG_MODE:
+                iface_count = len(cam_list)
+                indices_str = ", ".join(str(c.index) for c in cam_list)
+                cam_type = _identify_camera_type(selected.usb_vid, selected.usb_pid, selected.name)
+                print(f"[DEBUG] Multi-interface camera {cam_type}: {iface_count} interfaces (indices: {indices_str})")
+                print(f"[DEBUG]   Base ID: {base_id}")
+                print(f"[DEBUG]   Selected index {selected.index} as primary")
+
+            dedup_count += len(cam_list) - 1
+            unique_cameras.append(selected)
+        else:
+            # Single interface - keep as is
+            unique_cameras.append(cam_list[0])
+
+    # Add cameras without InstanceId (keep all, deduplicate by index only)
+    seen_indices: set[int] = set()
+    for cam in cameras_without_instance_id:
+        if cam.index is not None and cam.index in seen_indices:
             continue
         if cam.index is not None:
-            seen.add(cam.index)
-        unique.append(cam)
+            seen_indices.add(cam.index)
+        unique_cameras.append(cam)
 
-    return unique
+    if DEBUG_MODE:
+        print(f"[DEBUG] Deduplication: {dedup_count} interfaces removed (multi-interface cameras)")
+        print(f"[DEBUG] Final result: {len(unique_cameras)} physical cameras")
+        for cam in unique_cameras:
+            cam_type = _identify_camera_type(cam.usb_vid, cam.usb_pid, cam.name)
+            print(f"[DEBUG]   - Index {cam.index}: {cam.name} (Type: {cam_type})")
+
+    return unique_cameras
 
 # ---------------- macOS ----------------
 def _mac_avfoundation_devices() -> list[dict[str, str]]:
@@ -664,10 +860,63 @@ def enumerate_usb_external_cameras(
 
         cameras = enhanced_cameras
 
-    # Optional SDK-based enhancement (Phase 3 - not implemented yet)
+    # SDK-based enhancement (Phase 2 - RealSense SDK + ZED UVC validation)
     if use_sdk_enhancement:
         if DEBUG_MODE:
-            print("SDK enhancement not yet implemented (Phase 3)")
+            print("[DEBUG] Starting SDK enhancement (Phase 2)")
+
+        # LAYER 1: RealSense SDK Detection
+        try:
+            from utils.camera_detection_realsense import (
+                detect_realsense_cameras,
+                merge_sdk_with_usb_detection
+            )
+
+            sdk_cameras = detect_realsense_cameras()
+
+            if DEBUG_MODE:
+                print(f"[DEBUG] Layer 1 (RealSense SDK): Detected {len(sdk_cameras)} cameras")
+
+            # Merge SDK data with USB enumeration
+            if sdk_cameras:
+                cameras = merge_sdk_with_usb_detection(sdk_cameras, cameras)
+
+                if DEBUG_MODE:
+                    print(f"[DEBUG] After SDK merge: {len(cameras)} total cameras")
+
+        except ImportError as e:
+            if DEBUG_MODE:
+                print(f"[DEBUG] RealSense SDK module not available: {e}")
+        except Exception as e:
+            if DEBUG_MODE:
+                print(f"[DEBUG] Error during RealSense SDK detection: {e}")
+
+        # LAYER 4: ZED UVC Validation
+        # (Layer 2 is platform enumeration above, Layer 3 is VID/PID detection above)
+        try:
+            from utils.camera_validation_zed import enhance_zed_detection_with_uvc
+
+            if DEBUG_MODE:
+                print("[DEBUG] Layer 4 (ZED UVC): Starting validation")
+
+            cameras = enhance_zed_detection_with_uvc(cameras)
+
+            if DEBUG_MODE:
+                print(f"[DEBUG] After ZED UVC validation: {len(cameras)} total cameras")
+
+        except ImportError as e:
+            if DEBUG_MODE:
+                print(f"[DEBUG] ZED validation module not available: {e}")
+        except Exception as e:
+            if DEBUG_MODE:
+                print(f"[DEBUG] Error during ZED UVC validation: {e}")
+
+        if DEBUG_MODE:
+            print("[DEBUG] SDK enhancement complete")
+            for cam in cameras:
+                sdk_marker = " [SDK]" if cam.sdk_available else ""
+                print(f"[DEBUG]   - Index {cam.index}: {cam.camera_type}{sdk_marker}")
+                print(f"[DEBUG]     Capabilities: {cam.capabilities}")
 
     return cameras
 
