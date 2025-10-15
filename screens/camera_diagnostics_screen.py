@@ -27,7 +27,6 @@ class QtLogHandler(logging.Handler):
 
     def __init__(self):
         super().__init__()
-        self.log_emitted = QtCore.pyqtSignal(str)
 
     def emit(self, record):
         try:

@@ -199,57 +199,96 @@ def _win_list_usb_cameras_meta() -> list[dict[str, Union[str, bool, None]]]:
         List of dicts with FriendlyName, InstanceId, VID, PID, etc.
     """
     ps = r"""
-$devs = Get-PnpDevice -Class Camera,Image | Where-Object { $_.Status -eq 'OK' }
+# Optimized camera detection using Get-CimInstance (faster than Get-PnpDevice)
+# Targets: Intel RealSense D455i (VID_8086&PID_0B5C), Stereolabs ZED 2i (VID_2B03&PID_F880/F881)
+
 $result = @()
-foreach ($d in $devs) {
-  $id = $d.InstanceId
-  $enum = (Get-PnpDeviceProperty -InstanceId $id -KeyName 'DEVPKEY_Device_EnumeratorName' -ErrorAction SilentlyContinue).Data
-  $loc  = (Get-PnpDeviceProperty -InstanceId $id -KeyName 'DEVPKEY_Device_LocationInfo'   -ErrorAction SilentlyContinue).Data
-  $bus  = (Get-PnpDeviceProperty -InstanceId $id -KeyName 'DEVPKEY_Device_BusReportedDeviceDesc' -ErrorAction SilentlyContinue).Data
-  $hwid = (Get-PnpDeviceProperty -InstanceId $id -KeyName 'DEVPKEY_Device_HardwareIds' -ErrorAction SilentlyContinue).Data
 
-  # Method 1: Extract VID/PID from InstanceId (Primary)
-  # Format: USB\VID_8086&PID_0B5C\...
-  $vid_instance = ""
-  $pid_instance = ""
-  if ($id -match "VID_([0-9A-F]{4})") { $vid_instance = $matches[1] }
-  if ($id -match "PID_([0-9A-F]{4})") { $pid_instance = $matches[1] }
-
-  # Method 2: Extract VID/PID from HardwareIds (Fallback)
-  # Format: USB\VID_8086&PID_0B5C&MI_00
-  $vid_hwid = ""
-  $pid_hwid = ""
-  if ($hwid -match "VID_([0-9A-F]{4})") { $vid_hwid = $matches[1] }
-  if ($hwid -match "PID_([0-9A-F]{4})") { $pid_hwid = $matches[1] }
-
-  # Use InstanceId values if available, otherwise fallback to HardwareIds
-  $vid_final = if ($vid_instance) { $vid_instance } else { $vid_hwid }
-  $pid_final = if ($pid_instance) { $pid_instance } else { $pid_hwid }
-
-  $obj = [PSCustomObject]@{
-    FriendlyName = $d.FriendlyName
-    InstanceId   = $id
-    Enumerator   = $enum
-    Location     = $loc
-    BusDesc      = $bus
-    VID          = $vid_final
-    PID          = $pid_final
-    VID_Source   = if ($vid_instance) { "InstanceId" } else { "HardwareIds" }
-    PID_Source   = if ($pid_instance) { "InstanceId" } else { "HardwareIds" }
-  }
-  $result += $obj
+# Get all USB camera devices with status OK
+# Using CIM is 3-5x faster than PnP cmdlets
+$devices = Get-CimInstance -ClassName Win32_PnPEntity -Filter "Status = 'OK'" | Where-Object {
+    $_.PNPDeviceID -match '^USB\\VID_' -and
+    ($_.PNPClass -eq 'Camera' -or $_.PNPClass -eq 'Image')
 }
-$result | ConvertTo-Json
+
+foreach ($d in $devices) {
+    $id = $d.PNPDeviceID
+
+    # Fast VID/PID extraction using single regex match
+    # Format: USB\VID_8086&PID_0B5C&MI_00\SerialNumber
+    $vid = ""
+    $pid = ""
+
+    if ($id -match 'USB\\VID_([0-9A-F]{4})&PID_([0-9A-F]{4})') {
+        $vid = $matches[1]
+        $pid = $matches[2]
+    }
+
+    # Skip if VID/PID extraction failed
+    if (-not $vid -or -not $pid) {
+        continue
+    }
+
+    # Filter: Only Intel RealSense (8086) and Stereolabs ZED (2B03)
+    if ($vid -ne '8086' -and $vid -ne '2B03') {
+        continue
+    }
+
+    # Extract serial number from InstanceId if present
+    # Format: USB\VID_8086&PID_0B5C\318122302840
+    $serial = ""
+    if ($id -match '\\([^\\]+)$') {
+        $serial = $matches[1]
+    }
+
+    # Determine if this is USB by checking Service property
+    # Camera devices use 'usbvideo' service
+    $isUSB = $d.Service -eq 'usbvideo' -or $id.StartsWith('USB\')
+
+    # Build result object with minimal required data
+    $obj = [PSCustomObject]@{
+        FriendlyName = $d.Name
+        InstanceId   = $id
+        VID          = $vid
+        PID          = $pid
+        Serial       = $serial
+        IsUSB        = $isUSB
+        Service      = $d.Service
+    }
+
+    $result += $obj
+}
+
+# Convert to JSON
+# Use -Compress for faster serialization, -Depth 2 is sufficient
+if ($result.Count -eq 0) {
+    "[]"
+} elseif ($result.Count -eq 1) {
+    $result | ConvertTo-Json -Compress -Depth 2
+} else {
+    $result | ConvertTo-Json -Compress -Depth 2
+}
 """
     try:
-        # Execute PowerShell with 10 second timeout
+        # Execute PowerShell with 20 second timeout (increased from 10s)
+        import time
+        start_time = time.time()
+
+        if DEBUG_MODE:
+            print("[DEBUG] Starting PowerShell camera enumeration...")
+
         out = subprocess.check_output(
             ["powershell", "-NoProfile", "-Command", ps],
             text=True,
             encoding="utf-8",
             errors="ignore",
-            timeout=10
+            timeout=20  # Increased from 10s to 20s
         )
+
+        elapsed = time.time() - start_time
+        if DEBUG_MODE:
+            print(f"[DEBUG] PowerShell query completed in {elapsed:.2f}s")
+
         data = json.loads(out) if out.strip() else []
         if isinstance(data, dict):
             data = [data]
@@ -259,32 +298,40 @@ $result | ConvertTo-Json
 
     except subprocess.TimeoutExpired:
         if DEBUG_MODE:
-            print("[DEBUG] PowerShell enumeration timeout (10s) - using fallback")
+            print("[DEBUG] PowerShell enumeration timeout (20s) - using fallback")
+            print("[DEBUG] This may indicate:")
+            print("[DEBUG]   - Too many PnP devices on system")
+            print("[DEBUG]   - PowerShell performance issues")
+            print("[DEBUG]   - Permissions or security software interference")
         data = []
     except Exception as e:
         if DEBUG_MODE:
             print(f"[DEBUG] PowerShell enumeration failed: {e}")
         data = []
 
-    # Process and normalize data
+    # Process and normalize data from optimized PowerShell script
     for d in data:
-        iid = _norm(d.get("InstanceId", ""))
         vid_raw = d.get("VID", "")
         pid_raw = d.get("PID", "")
 
         # Normalize to 0xXXXX format consistently
         d["usb_vid"] = f"0x{vid_raw}" if vid_raw else None
         d["usb_pid"] = f"0x{pid_raw}" if pid_raw else None
-        d["is_usb"] = (d.get("Enumerator") == "USB") or iid.upper().startswith("USB\\VID_")
-        d["is_internal"] = bool(_norm(d.get("Location", "")).lower().find("internal") >= 0) or _looks_internal(d.get("FriendlyName", ""))
-        d["is_virtual"] = _looks_virtual(d.get("FriendlyName", ""))
+
+        # PowerShell script already filters for USB, so trust IsUSB field
+        d["is_usb"] = d.get("IsUSB", False)
+
+        # Check if this is internal or virtual by name
+        friendly_name = d.get("FriendlyName", "")
+        d["is_internal"] = _looks_internal(friendly_name)
+        d["is_virtual"] = _looks_virtual(friendly_name)
 
         if DEBUG_MODE and d.get("is_usb"):
-            vid_src = d.get("VID_Source", "unknown")
-            pid_src = d.get("PID_Source", "unknown")
-            print(f"[DEBUG] {d.get('FriendlyName')}: VID={d['usb_vid']} ({vid_src}), PID={d['usb_pid']} ({pid_src})")
+            serial = d.get("Serial", "N/A")
+            print(f"[DEBUG] {friendly_name}: VID={d['usb_vid']}, PID={d['usb_pid']}, Serial={serial}")
 
     # Keep only external USB, non-virtual, non-internal
+    # PowerShell script already filtered for target VIDs (8086, 2B03)
     filtered = [d for d in data if d.get("is_usb") and not d.get("is_internal") and not d.get("is_virtual")]
 
     if DEBUG_MODE:
