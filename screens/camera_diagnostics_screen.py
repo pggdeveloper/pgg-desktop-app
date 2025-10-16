@@ -20,13 +20,14 @@ from constants import THEME
 from config import DEBUG_MODE
 
 
-class QtLogHandler(logging.Handler):
+class QtLogHandler(QtCore.QObject, logging.Handler):
     """Custom log handler that emits to Qt signal."""
 
     log_emitted = QtCore.pyqtSignal(str)
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent=None):
+        QtCore.QObject.__init__(self, parent)
+        logging.Handler.__init__(self)
 
     def emit(self, record):
         try:

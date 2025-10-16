@@ -217,15 +217,15 @@ foreach ($d in $devices) {
     # Fast VID/PID extraction using single regex match
     # Format: USB\VID_8086&PID_0B5C&MI_00\SerialNumber
     $vid = ""
-    $pid = ""
+    $pidValue = ""
 
     if ($id -match 'USB\\VID_([0-9A-F]{4})&PID_([0-9A-F]{4})') {
         $vid = $matches[1]
-        $pid = $matches[2]
+        $pidValue = $matches[2]
     }
 
     # Skip if VID/PID extraction failed
-    if (-not $vid -or -not $pid) {
+    if (-not $vid -or -not $pidValue) {
         continue
     }
 
@@ -250,7 +250,7 @@ foreach ($d in $devices) {
         FriendlyName = $d.Name
         InstanceId   = $id
         VID          = $vid
-        PID          = $pid
+        PID          = $pidValue
         Serial       = $serial
         IsUSB        = $isUSB
         Service      = $d.Service
@@ -288,6 +288,9 @@ if ($result.Count -eq 0) {
         elapsed = time.time() - start_time
         if DEBUG_MODE:
             print(f"[DEBUG] PowerShell query completed in {elapsed:.2f}s")
+            print(f"[DEBUG] PowerShell raw output ({len(out)} chars):")
+            print(f"[DEBUG] First 500 chars: {out[:500]!r}")
+            print(f"[DEBUG] Last 500 chars: {out[-500:]!r}")
 
         data = json.loads(out) if out.strip() else []
         if isinstance(data, dict):

@@ -30,14 +30,8 @@ except ImportError:
     if DEBUG_MODE:
         print("Warning: CowMotionAnalyzer not available. Motion analysis disabled.")
 
-# Import cow trajectory analyzer for Scenario 9
-try:
-    from utils.cow_trajectory_and_path_analysis import CowTrajectoryAnalyzer
-    TRAJECTORY_ANALYSIS_AVAILABLE = True
-except ImportError:
-    TRAJECTORY_ANALYSIS_AVAILABLE = False
-    if DEBUG_MODE:
-        print("Warning: CowTrajectoryAnalyzer not available. Trajectory analysis disabled.")
+# Trajectory tracking moved to deprecated file (realsense_tracking_deprecated.py)
+# Use cattle_tracker.py for modern DeepSORT-based tracking instead
 
 # Import cow scene understanding for Scenario 10
 try:
@@ -126,10 +120,6 @@ class RealSenseCameraRecorder:
         enable_motion_analysis: bool = False,
         motion_animal_type: Literal['cow', 'bull', 'calf', 'heifer', 'steer'] = 'cow',
         motion_analysis_interval: int = 1,  # Analyze every 1 second (every N seconds)
-        # Scenario 9: Trajectory tracking and path analysis for cows
-        enable_trajectory_analysis: bool = False,
-        trajectory_animal_type: Literal['cow', 'bull', 'calf', 'heifer', 'steer'] = 'cow',
-        trajectory_tracking_interval: int = 1,  # Record position every N seconds
         # Scenario 10: Scene understanding for cows
         enable_scene_understanding: bool = False,
         scene_environment_type: Literal['feedlot_closed', 'feedlot_outdoor', 'pasture_natural', 'pasture_fodder'] = 'feedlot_outdoor',
@@ -196,11 +186,6 @@ class RealSenseCameraRecorder:
             enable_motion_analysis: Enable cow motion analysis (optical flow, activity, gait)
             motion_animal_type: Type of cattle for motion analysis
             motion_analysis_interval: Interval in seconds between motion analysis reports
-
-            # Scenario 9: Trajectory tracking and path analysis
-            enable_trajectory_analysis: Enable trajectory tracking and path analysis
-            trajectory_animal_type: Type of cattle for trajectory analysis
-            trajectory_tracking_interval: Interval in seconds between trajectory point recording
 
             # Scenario 10: Scene understanding
             enable_scene_understanding: Enable scene understanding (planes, objects, environment)
@@ -293,24 +278,6 @@ class RealSenseCameraRecorder:
                 if DEBUG_MODE:
                     print(f"Failed to initialize CowMotionAnalyzer: {e}")
                 self.enable_motion_analysis = False
-
-        # Scenario 9: Trajectory tracking and path analysis
-        self.enable_trajectory_analysis = enable_trajectory_analysis and TRAJECTORY_ANALYSIS_AVAILABLE
-        self.trajectory_animal_type = trajectory_animal_type
-        self.trajectory_tracking_interval = trajectory_tracking_interval
-        self.last_trajectory_tracking_time = 0
-
-        # Initialize trajectory analyzer if enabled
-        self.trajectory_analyzer = None
-        if self.enable_trajectory_analysis:
-            try:
-                self.trajectory_analyzer = CowTrajectoryAnalyzer(animal_type=trajectory_animal_type, fps=fps)
-                if DEBUG_MODE:
-                    print(f"CowTrajectoryAnalyzer initialized for {trajectory_animal_type} at {fps} fps")
-            except Exception as e:
-                if DEBUG_MODE:
-                    print(f"Failed to initialize CowTrajectoryAnalyzer: {e}")
-                self.enable_trajectory_analysis = False
 
         # Scenario 10: Scene understanding
         self.enable_scene_understanding = enable_scene_understanding and SCENE_UNDERSTANDING_AVAILABLE
@@ -859,10 +826,6 @@ class RealSenseCameraRecorder:
                 if self.enable_motion_analysis:
                     self._process_motion_analysis(color_image, depth_image, depth_frame, current_time)
 
-                # Perform trajectory tracking if enabled
-                if self.enable_trajectory_analysis:
-                    self._process_trajectory_tracking(depth_frame, color_frame, current_time)
-
                 # Perform scene understanding if enabled
                 if self.enable_scene_understanding:
                     self._process_scene_understanding(depth_frame, color_frame, current_time)
@@ -1285,129 +1248,6 @@ class RealSenseCameraRecorder:
                 import traceback
                 traceback.print_exc()
 
-    def _process_trajectory_tracking(
-        self,
-        depth_frame,
-        color_frame,
-        timestamp: float
-    ):
-        """
-        Process trajectory tracking for detected animal.
-
-        This method integrates the CowTrajectoryAnalyzer from Scenario 9
-        to record 3D trajectory, smooth paths, analyze turning patterns,
-        and predict future positions.
-
-        Args:
-            depth_frame: RealSense depth frame object
-            color_frame: RealSense color frame object
-            timestamp: Current timestamp
-        """
-        if not self.trajectory_analyzer:
-            return
-
-        # Check if it's time to track (based on interval)
-        if timestamp - self.last_trajectory_tracking_time < self.trajectory_tracking_interval:
-            return
-
-        try:
-            import pyrealsense2 as rs
-
-            # Generate unique animal ID (could be enhanced with actual tracking/detection)
-            animal_id = f"animal_{self.camera_info.index}_{int(timestamp // 60)}"  # Group by minute
-
-            # Generate point cloud to find animal centroid position
-            pc = rs.pointcloud()
-            points_data = pc.calculate(depth_frame)
-            pc.map_to(color_frame)
-
-            # Extract vertices as NumPy array
-            vertices = np.asanyarray(points_data.get_vertices())
-            vertices_array = np.array([[v[0], v[1], v[2]] for v in vertices])
-
-            # Filter invalid points
-            valid_mask = ~np.isnan(vertices_array).any(axis=1) & \
-                        ~np.isinf(vertices_array).any(axis=1) & \
-                        (vertices_array != 0).any(axis=1)
-            points = vertices_array[valid_mask]
-
-            if len(points) < 100:
-                return
-
-            # Calculate centroid as animal position
-            # In production, this would be enhanced with actual object detection
-            centroid = np.mean(points, axis=0)
-
-            # Record trajectory point
-            self.trajectory_analyzer.record_trajectory_point(
-                animal_id=animal_id,
-                position=centroid,
-                timestamp=datetime.fromtimestamp(timestamp),
-                frame_number=self.processed_frame_count
-            )
-
-            # Update last tracking time
-            self.last_trajectory_tracking_time = timestamp
-
-            # Periodically generate and save trajectory reports (every 10 seconds)
-            if self.processed_frame_count % (self.fps * 10) == 0:
-                trajectory_report = self.trajectory_analyzer.generate_trajectory_report(animal_id)
-
-                if trajectory_report:
-                    # Save trajectory points to CSV
-                    trajectory_csv = self._generate_filename("trajectory_points", "csv")
-                    trajectory_path = str(self.output_dir / trajectory_csv)
-                    self.trajectory_analyzer.save_trajectory_to_csv(
-                        trajectory_report.trajectory,
-                        trajectory_path
-                    )
-
-                    # Save trajectory report to CSV
-                    report_csv = self._generate_filename("trajectory_reports", "csv")
-                    report_path = str(self.output_dir / report_csv)
-                    self.trajectory_analyzer.save_trajectory_report_to_csv(
-                        trajectory_report,
-                        report_path
-                    )
-
-                    if DEBUG_MODE:
-                        print(f"\n{'='*60}")
-                        print(f"Trajectory Report - {animal_id}")
-                        print(f"{'='*60}")
-                        print(f"Total Points:           {len(trajectory_report.trajectory.points)}")
-                        print(f"Path Length:            {trajectory_report.path_metrics.total_length_m:.3f} m")
-                        print(f"Average Speed:          {trajectory_report.path_metrics.average_speed_m_s:.3f} m/s")
-                        print(f"Max Speed:              {trajectory_report.path_metrics.max_speed_m_s:.3f} m/s")
-                        print(f"Duration:               {trajectory_report.path_metrics.total_duration_s:.1f} s")
-                        print(f"Sharp Turns:            {trajectory_report.path_metrics.sharp_turns_count}")
-
-                        if trajectory_report.predicted_positions:
-                            print(f"Predicted Future Positions (next 5 seconds):")
-                            for i, pred_pos in enumerate(trajectory_report.predicted_positions, 1):
-                                print(f"  +{i}s: ({pred_pos[0]:.3f}, {pred_pos[1]:.3f}, {pred_pos[2]:.3f})")
-
-                        if trajectory_report.cluster_assignment is not None:
-                            print(f"Cluster Assignment:     {trajectory_report.cluster_assignment}")
-
-                        print(f"{'='*60}\n")
-
-                        # Optionally smooth trajectory and compare
-                        if len(trajectory_report.trajectory.points) >= 10:
-                            smoothed_traj = self.trajectory_analyzer.smooth_trajectory_moving_average(
-                                trajectory_report.trajectory,
-                                window_size=5
-                            )
-                            print(f"Smoothed Trajectory:")
-                            print(f"  Original Length: {trajectory_report.trajectory.total_length:.3f} m")
-                            print(f"  Smoothed Length: {smoothed_traj.total_length:.3f} m")
-                            print(f"  Difference:      {abs(trajectory_report.trajectory.total_length - smoothed_traj.total_length):.3f} m")
-                            print()
-
-        except Exception as e:
-            if DEBUG_MODE:
-                print(f"Error processing trajectory tracking: {e}")
-                import traceback
-                traceback.print_exc()
 
     def _process_scene_understanding(
         self,
@@ -1943,8 +1783,14 @@ class RealSenseCameraRecorder:
 
         # Stop pipeline
         if self.pipeline:
-            self.pipeline.stop()
+            try:
+                self.pipeline.stop()
+            except RuntimeError:
+                pass  # Pipeline already stopped
 
     def __del__(self):
         """Destructor to ensure cleanup."""
-        self._cleanup()
+        try:
+            self._cleanup()
+        except Exception:
+            pass  # Ignore errors during cleanup

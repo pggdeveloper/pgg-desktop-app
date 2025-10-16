@@ -74,7 +74,13 @@ def validate_zed_camera_uvc(camera: CameraInfo) -> Tuple[bool, Optional[dict]]:
                 print(f"[DEBUG] ZED validation failed: Cannot open camera at {camera.open_hint}")
             return False, None
 
-        # Get camera properties
+        # Force ZED stereo resolution (DirectShow may default to 640x480)
+        # Try highest resolution first (3840x1080)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 2560)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+        cap.set(cv2.CAP_PROP_FPS, 30)
+
+        # Get camera properties after setting resolution
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         fps = cap.get(cv2.CAP_PROP_FPS)

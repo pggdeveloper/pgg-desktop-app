@@ -1,0 +1,148 @@
+"""
+Quick test for camera index 4.
+
+Based on console output, index 4 exists but has no PowerShell metadata.
+This script quickly tests if index 4 is the ZED 2i stereo interface.
+
+Run this first for a quick answer to the mystery.
+"""
+import cv2
+
+def test_index_4():
+    """Quick test of index 4."""
+    print("=" * 70)
+    print("Quick Test: Camera Index 4")
+    print("=" * 70)
+    print("\nHypothesis: Index 4 might be the ZED 2i stereo interface")
+    print("(Index 2 was detected as ZED 2i but failed stereo validation)")
+    print()
+
+    # Try to open index 4
+    print("Opening camera at index 4 with DirectShow...")
+    cap = cv2.VideoCapture(4, cv2.CAP_DSHOW)
+
+    if not cap.isOpened():
+        print("FAILED: Cannot open camera at index 4")
+        print("\nPossible reasons:")
+        print("  - Index 4 doesn't exist")
+        print("  - Camera is in use by another application")
+        print("  - DirectShow backend issue")
+        return
+
+    print("SUCCESS: Camera opened at index 4\n")
+
+    # Get default resolution (without setting anything)
+    default_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    default_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    default_fps = cap.get(cv2.CAP_PROP_FPS)
+
+    print(f"Default resolution: {default_w}x{default_h} @ {default_fps:.1f}fps")
+
+    # Calculate aspect ratio
+    aspect = default_w / default_h if default_h > 0 else 0
+    print(f"Aspect ratio: {aspect:.2f}")
+
+    # Check if stereo
+    if 3.0 <= aspect <= 4.0:
+        print("\n" + "-" * 35)
+        print(" INDEX 4 IS A STEREO CAMERA! ")
+        print("-" * 35)
+        print(f"\nAspect ratio {aspect:.2f} indicates STEREO SIDE-BY-SIDE format")
+        print("\nSOLUTION FOUND:")
+        print("   The ZED 2i stereo interface is at INDEX 4, not INDEX 2!")
+        print("\n   Next steps:")
+        print("   1. Update camera enumeration to use index 4 for ZED 2i")
+        print("   2. Modify camera_validation_zed.py to scan adjacent indices")
+        print("   3. Update Windows enumeration to handle multi-interface cameras")
+    else:
+        print(f"\nIndex 4 is NOT stereo (aspect ratio {aspect:.2f})")
+        print("   Expected aspect ratio: ~3.56 for stereo side-by-side")
+        print("   Got: 1.78 (16:9 standard) or other non-stereo ratio")
+
+    print()
+
+    # Try to read a frame
+    print("Testing frame capture...")
+    ret, frame = cap.read()
+
+    if ret and frame is not None:
+        print(f"Frame captured successfully")
+        print(f"   Frame shape: {frame.shape}")
+        print(f"   Dimensions: {frame.shape[1]}x{frame.shape[0]} (width x height)")
+
+        # Verify frame aspect ratio
+        frame_aspect = frame.shape[1] / frame.shape[0]
+        print(f"   Frame aspect ratio: {frame_aspect:.2f}")
+
+        if 3.0 <= frame_aspect <= 4.0:
+            print("\n   CONFIRMED: Frame has stereo aspect ratio!")
+    else:
+        print("Failed to read frame")
+
+    # Try to set ZED stereo resolutions
+    print("\nTesting ZED stereo resolutions:")
+    zed_resolutions = [
+        (2560, 720, "HD Stereo"),
+        (3840, 1080, "Full HD Stereo"),
+        (1344, 376, "VGA Stereo"),
+    ]
+
+    supported_stereo = []
+
+    for width, height, desc in zed_resolutions:
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+
+        actual_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        actual_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+        if actual_w == width and actual_h == height:
+            print(f"   {width}x{height} - {desc} SUPPORTED")
+            supported_stereo.append((width, height, desc))
+        else:
+            print(f"   {width}x{height} - {desc} NOT SUPPORTED (got {actual_w}x{actual_h})")
+
+    if supported_stereo:
+        print(f"\nIndex 4 supports {len(supported_stereo)} ZED stereo format(s)!")
+        print("   This CONFIRMS index 4 is the ZED 2i stereo interface")
+    else:
+        print("\n  Index 4 does NOT support any ZED stereo formats")
+
+    cap.release()
+
+    print("\n" + "=" * 70)
+    print("Test complete")
+    print("=" * 70)
+
+def compare_index_2_and_4():
+    """Compare index 2 and index 4 side-by-side."""
+    print("\n" + "=" * 70)
+    print("Comparison: Index 2 vs Index 4")
+    print("=" * 70)
+
+    for idx in [2, 4]:
+        print(f"\n--- Index {idx} ---")
+        cap = cv2.VideoCapture(idx, cv2.CAP_DSHOW)
+
+        if not cap.isOpened():
+            print(f"Cannot open index {idx}")
+            continue
+
+        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        aspect = w / h if h > 0 else 0
+
+        print(f"Resolution: {w}x{h} @ {fps:.1f}fps")
+        print(f"Aspect: {aspect:.2f}")
+
+        if 3.0 <= aspect <= 4.0:
+            print("STEREO")
+        else:
+            print("Single camera (non-stereo)")
+
+        cap.release()
+
+if __name__ == "__main__":
+    test_index_4()
+    compare_index_2_and_4()
