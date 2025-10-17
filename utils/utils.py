@@ -344,10 +344,13 @@ if ($result.Count -eq 0) {
 
 def _win_enumerate_usb(max_test: int = 10) -> list[CameraInfo]:
     """
-    Enumerate USB cameras on Windows with multi-interface deduplication.
+    Enumerate USB cameras on Windows with SDK-based identification.
 
-    RealSense and ZED cameras expose multiple interfaces (RGB, Depth, HID).
-    This function groups them by VID+PID to return one CameraInfo per physical camera.
+    This function uses SDK exclusion to definitively identify RealSense vs ZED cameras.
+    The strategy eliminates ambiguity by testing each stereo-capable camera with the
+    RealSense SDK, then identifying remaining stereo cameras as ZED devices.
+
+    Enhancement (2025-10-17): Replaced position-based matching with SDK exclusion strategy.
 
     Returns:
         List of CameraInfo objects (one per physical camera)
@@ -360,16 +363,45 @@ def _win_enumerate_usb(max_test: int = 10) -> list[CameraInfo]:
         print(f"[DEBUG] Found {len(indices)} OpenCV indices: {indices}")
         print(f"[DEBUG] Found {len(meta)} PowerShell metadata entries")
 
-    # Build initial cameras list with all interfaces
+    # NEW: Use SDK exclusion for identification
+    from utils.camera_identification_sdk import identify_cameras_by_sdk_exclusion
+
+    if DEBUG_MODE:
+        print(f"[DEBUG] Starting SDK-based camera identification...")
+
+    cameras = identify_cameras_by_sdk_exclusion(indices, meta)
+
+    if DEBUG_MODE:
+        print(f"[DEBUG] SDK exclusion complete: {len(cameras)} cameras identified")
+        for cam in cameras:
+            print(f"[DEBUG]   - Index {cam.index}: {cam.camera_type} ({cam.backend})")
+
+    # Build list for remaining non-stereo cameras (generic USB cameras)
     all_cameras: list[CameraInfo] = []
 
-    for idx in indices:
-        # Try to find matching metadata by index or name
+    # Add SDK-identified cameras (RealSense + ZED)
+    all_cameras.extend(cameras)
+
+    # Find indices that were NOT identified by SDK exclusion
+    identified_indices = set(cam.index for cam in cameras if cam.index is not None)
+    remaining_indices = [idx for idx in indices if idx not in identified_indices]
+
+    if DEBUG_MODE and remaining_indices:
+        print(f"[DEBUG] Remaining indices to process: {remaining_indices}")
+
+    # Process remaining indices as generic cameras
+    for idx in remaining_indices:
+        # Try to find matching metadata
         matched_meta = None
 
-        # Simple matching: use position if available
-        if idx < len(meta):
-            matched_meta = meta[idx]
+        # Match by VID/PID if available
+        for m in meta:
+            # Check if this metadata hasn't been used by SDK-identified cameras
+            if m.get("usb_vid") and m.get("usb_pid"):
+                # This is specialized camera metadata (already processed)
+                continue
+            matched_meta = m
+            break
 
         if matched_meta:
             name = matched_meta.get("FriendlyName", f"Camera {idx}")
@@ -395,13 +427,13 @@ def _win_enumerate_usb(max_test: int = 10) -> list[CameraInfo]:
                 print(f"[DEBUG] Index {idx}: Filtered out (virtual/internal)")
             continue
 
-        # Create CameraInfo for this interface
+        # Create CameraInfo for this generic camera
         cam = CameraInfo(
             index=idx,
             name=name,
             backend=CameraBackend.DSHOW,
             open_hint=idx,
-            camera_type=CameraType.UNKNOWN,
+            camera_type=CameraType.GENERIC,
             capabilities=CameraCapabilities(),
             usb_vid=usb_vid,
             usb_pid=usb_pid,
@@ -410,7 +442,7 @@ def _win_enumerate_usb(max_test: int = 10) -> list[CameraInfo]:
         all_cameras.append(cam)
 
     if DEBUG_MODE:
-        print(f"[DEBUG] After filtering: {len(all_cameras)} camera interfaces")
+        print(f"[DEBUG] Total cameras after SDK identification: {len(all_cameras)}")
 
     # Helper function to extract base InstanceId (without &MI_XX interface suffix)
     def get_base_instance_id(os_id: Optional[str]) -> Optional[str]:

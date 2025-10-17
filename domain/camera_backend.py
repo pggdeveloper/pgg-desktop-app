@@ -9,6 +9,7 @@ class CameraBackend(Enum):
     Different platforms use different backends for optimal performance.
     """
     DSHOW = "DSHOW"           # Windows DirectShow
+    MSMF = "MSMF"             # Windows Media Foundation
     AVFOUNDATION = "AVFOUNDATION"  # macOS AVFoundation
     V4L2 = "V4L2"             # Linux Video4Linux2
     REALSENSE_SDK = "REALSENSE_SDK"  # Intel RealSense SDK (pyrealsense2)

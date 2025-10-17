@@ -198,15 +198,34 @@ class ZedCameraRecorder:
             self.camera = cv2.VideoCapture(cam_index, cv2.CAP_DSHOW)
 
             if not self.camera.isOpened():
-                return False
+                self.camera = cv2.VideoCapture(cam_index, cv2.CAP_MSMF)
+                if not self.camera.isOpened():
+                    if DEBUG_MODE:
+                        print(f"Failed to open camera at index {cam_index}")
+                    return False
 
             # Configure resolution and FPS
             self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
             self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
             self.camera.set(cv2.CAP_PROP_FPS, self.fps)
 
+            # Verify resolution was set correctly
+            actual_width = int(self.camera.get(cv2.CAP_PROP_FRAME_WIDTH))
+            actual_height = int(self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+            # Update instance width/height to match actual camera output
+            # DirectShow may not honor resolution requests
+            if actual_width != self.width or actual_height != self.height:
+                if DEBUG_MODE:
+                    print(f"Warning: Camera returned {actual_width}x{actual_height}, adjusting from requested {self.width}x{self.height}")
+
+                self.width = actual_width
+                self.height = actual_height
+                self.single_width = actual_width // 2  # Update single camera width
+
             if DEBUG_MODE:
                 print(f"Zed camera initialized with OpenCV: {self.camera_info.name}")
+                print(f"Zed camera resolution: {actual_width}x{actual_height}")
 
             return True
 

@@ -5,6 +5,11 @@ This module provides UVC-based validation for Stereolabs ZED cameras,
 verifying stereo side-by-side format and extracting camera metadata
 through standard USB Video Class protocol.
 
+UPDATED (2025-10-17): With SDK-based exclusion strategy, ZED cameras are
+now definitively identified in utils/camera_identification_sdk.py before
+reaching this validation stage. This module now serves as CONFIRMATION
+rather than primary identification.
+
 Since the ZED SDK (pyzed) requires GPU/CUDA which is NOT available in this
 system, this module uses OpenCV's UVC backend to validate ZED cameras and
 verify they are outputting the expected stereo format.
@@ -46,18 +51,24 @@ def validate_zed_camera_uvc(camera: CameraInfo) -> Tuple[bool, Optional[dict]]:
     """
     Validate a ZED camera via UVC and verify stereo side-by-side format.
 
+    UPDATED (2025-10-17): Camera already identified as ZED via SDK exclusion
+    (utils/camera_identification_sdk.py). This function now serves as a
+    SANITY CHECK to confirm the camera outputs proper stereo format.
+
     This function opens the camera using OpenCV, checks the output resolution,
     and verifies it matches the expected ZED stereo side-by-side format.
 
     Args:
-        camera: CameraInfo object from USB enumeration (should be ZED type)
+        camera: CameraInfo object already identified as ZED_2i or ZED_2
 
     Returns:
         Tuple of (is_valid, metadata)
-        - is_valid: True if camera is valid ZED with stereo format
+        - is_valid: True if camera outputs correct stereo format
         - metadata: Dict with resolution, fps, format info (None if invalid)
 
     Notes:
+        - Camera was already confirmed as ZED (not RealSense) by SDK exclusion
+        - This is a format verification, not primary identification
         - Opens camera briefly to check format (released immediately)
         - Does NOT require GPU (validation only, no depth processing)
         - Verifies aspect ratio matches stereo side-by-side (~3.56)
@@ -138,23 +149,29 @@ def enhance_zed_detection_with_uvc(cameras: list[CameraInfo]) -> list[CameraInfo
     """
     Enhance ZED camera detection with UVC validation.
 
-    This function validates ZED cameras identified by VID/PID and updates
+    UPDATED (2025-10-17): With SDK exclusion strategy, cameras reaching this
+    function have already been definitively identified as ZED (not RealSense).
+    This function now performs SANITY CHECK validation rather than primary
+    identification.
+
+    This function validates ZED cameras identified by SDK exclusion and updates
     their capabilities based on UVC validation results.
 
-    For cameras identified as ZED (via VID/PID), this function:
-    1. Validates stereo side-by-side format via UVC
+    For cameras identified as ZED (via SDK exclusion), this function:
+    1. Validates stereo side-by-side format via UVC (sanity check)
     2. Updates capabilities with stereo=True if validated
-    3. Marks cameras as GENERIC if validation fails (not a real ZED)
+    3. Marks cameras as GENERIC if validation fails (hardware issue)
 
     Args:
-        cameras: List of CameraInfo from USB enumeration
+        cameras: List of CameraInfo from camera_identification_sdk
 
     Returns:
         Updated list with enhanced ZED detection
 
     Notes:
         - Only processes cameras with camera_type = ZED_2i or ZED_2
-        - Validation failure downgrades camera to GENERIC
+        - Cameras already confirmed as ZED by SDK exclusion
+        - Validation failure indicates hardware/format issue, not misidentification
         - Does NOT require GPU (validation only)
     """
     enhanced: list[CameraInfo] = []
@@ -206,9 +223,11 @@ def enhance_zed_detection_with_uvc(cameras: list[CameraInfo]) -> list[CameraInfo
 
         else:
             # Validation failed - downgrade to GENERIC
-            # Camera has ZED VID/PID but doesn't output stereo format
+            # Camera identified as ZED by SDK exclusion but format check failed
+            # This indicates hardware issue, not misidentification
             if DEBUG_MODE:
-                print(f"[DEBUG] ZED validation failed - downgrading to GENERIC")
+                print(f"[DEBUG] ZED format validation failed - possible hardware issue")
+                print(f"[DEBUG] Downgrading to GENERIC (camera not outputting stereo format)")
 
             updated_cam = CameraInfo(
                 index=cam.index,

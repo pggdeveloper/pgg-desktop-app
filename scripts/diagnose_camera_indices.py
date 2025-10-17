@@ -2,16 +2,24 @@
 Diagnostic script to test all camera indices and check resolutions.
 Identifies which index provides ZED 2i stereo side-by-side format.
 
+UPDATED (2025-10-17): Now uses SDK exclusion strategy to definitively
+identify if stereo cameras are RealSense or ZED.
+
 This script tests all camera indices from 0 to 10 and checks:
 - Which indices can be opened
 - Default resolution for each camera
 - Aspect ratio (to detect stereo side-by-side)
 - Which resolutions each camera supports
+- SDK-based identification (RealSense vs ZED)
 
 Critical for debugging ZED 2i detection issues.
 """
 import cv2
 import sys
+import os
+
+# Add parent directory to path to import SDK exclusion functions
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 TESTED_RESOLUTIONS = [
     (3840, 1080, "Full HD Stereo (ZED 2i native)"),
@@ -35,6 +43,8 @@ def test_camera_index(index: int) -> dict:
         - default_resolution: tuple (width, height, fps)
         - supported_modes: list of tuples (width, height, description)
         - is_stereo_candidate: bool (aspect ratio 3.0-4.0)
+        - sdk_is_realsense: bool or None (None if SDK not available)
+        - sdk_status: str or None
     """
     results = {
         "index": index,
@@ -42,7 +52,16 @@ def test_camera_index(index: int) -> dict:
         "default_resolution": None,
         "supported_modes": [],
         "is_stereo_candidate": False,
+        "sdk_is_realsense": None,
+        "sdk_status": None,
     }
+
+    # Import SDK exclusion function
+    try:
+        from utils.camera_identification_sdk import test_index_is_realsense_via_sdk_robust
+        sdk_available = True
+    except ImportError:
+        sdk_available = False
 
     try:
         # Open with DirectShow (Windows)
@@ -104,6 +123,24 @@ def test_camera_index(index: int) -> dict:
 
         cap.release()
 
+        # SDK-based identification (run after closing OpenCV to avoid conflicts)
+        if sdk_available:
+            print(f"   SDK identification:")
+            is_realsense, status = test_index_is_realsense_via_sdk_robust(index, 'DSHOW')
+            results["sdk_is_realsense"] = is_realsense
+            results["sdk_status"] = status
+
+            if is_realsense:
+                print(f"      REALSENSE confirmed ({status})")
+            else:
+                print(f"      NOT RealSense ({status})")
+
+                # If stereo + not RealSense, likely ZED
+                if results["is_stereo_candidate"]:
+                    print(f"      Combined result: Likely ZED 2i (stereo + not RealSense)")
+        else:
+            print(f"   SDK identification: Not available (install pyrealsense2)")
+
     except Exception as e:
         print(f" Index {index}: Error - {e}")
         import traceback
@@ -148,6 +185,16 @@ def main():
             for mode in r['supported_modes']:
                 print(f"         - {mode[0]}x{mode[1]} ({mode[2]})")
 
+            # Show SDK identification
+            if r["sdk_is_realsense"] is not None:
+                if r["sdk_is_realsense"]:
+                    print(f"      SDK: REALSENSE ({r['sdk_status']})")
+                else:
+                    print(f"      SDK: NOT RealSense ({r['sdk_status']})")
+                    print(f"      CONCLUSION: This is the ZED 2i stereo interface")
+            else:
+                print(f"      SDK: Not available")
+
         print("\n" + "=" * 70)
         print(" RECOMMENDATION:")
         print("=" * 70)
@@ -172,7 +219,16 @@ def main():
         width, height, fps = r["default_resolution"]
         aspect = width / height if height > 0 else 0
         stereo_marker = " STEREO" if r["is_stereo_candidate"] else ""
-        print(f"   Index {r['index']}: {width}x{height} @ {fps:.1f}fps (aspect {aspect:.2f}) {stereo_marker}")
+
+        # SDK identification marker
+        sdk_marker = ""
+        if r["sdk_is_realsense"] is not None:
+            if r["sdk_is_realsense"]:
+                sdk_marker = " [RealSense]"
+            else:
+                sdk_marker = " [NOT RealSense]"
+
+        print(f"   Index {r['index']}: {width}x{height} @ {fps:.1f}fps (aspect {aspect:.2f}){stereo_marker}{sdk_marker}")
 
     print("\n" + "=" * 70)
     print(f"Total cameras tested: 11")

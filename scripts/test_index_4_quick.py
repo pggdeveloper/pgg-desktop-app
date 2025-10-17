@@ -1,5 +1,8 @@
 """
-Quick test for camera index 4.
+Quick test for camera index 4 with SDK-based identification.
+
+UPDATED (2025-10-17): Now uses SDK exclusion strategy to definitively
+identify if a stereo camera is RealSense or ZED.
 
 Based on console output, index 4 exists but has no PowerShell metadata.
 This script quickly tests if index 4 is the ZED 2i stereo interface.
@@ -7,6 +10,11 @@ This script quickly tests if index 4 is the ZED 2i stereo interface.
 Run this first for a quick answer to the mystery.
 """
 import cv2
+import sys
+import os
+
+# Add parent directory to path to import SDK exclusion functions
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 def test_index_4():
     """Quick test of index 4."""
@@ -16,6 +24,14 @@ def test_index_4():
     print("\nHypothesis: Index 4 might be the ZED 2i stereo interface")
     print("(Index 2 was detected as ZED 2i but failed stereo validation)")
     print()
+
+    # Import SDK exclusion function
+    try:
+        from utils.camera_identification_sdk import test_index_is_realsense_via_sdk_robust
+        sdk_available = True
+    except ImportError:
+        print("WARNING: SDK exclusion module not available")
+        sdk_available = False
 
     # Try to open index 4
     print("Opening camera at index 4 with DirectShow...")
@@ -79,6 +95,49 @@ def test_index_4():
     else:
         print("Failed to read frame")
 
+    cap.release()
+
+    # SDK-based identification
+    print("\n" + "=" * 70)
+    print("SDK-BASED IDENTIFICATION (Definitive)")
+    print("=" * 70)
+
+    if sdk_available:
+        print("\nTesting Index 4 with RealSense SDK...")
+        is_realsense, status = test_index_is_realsense_via_sdk_robust(4, 'DSHOW')
+
+        print(f"Result: {status}")
+        print(f"Is RealSense: {is_realsense}")
+
+        if is_realsense:
+            print("\n" + "-" * 70)
+            print(" INDEX 4 IS A REALSENSE CAMERA")
+            print("-" * 70)
+            print("\nSDK confirmed this is a RealSense D455i or similar model")
+        else:
+            print("\n" + "-" * 70)
+            print(" INDEX 4 IS NOT A REALSENSE CAMERA")
+            print("-" * 70)
+            print("\nSDK exclusion indicates this is likely a ZED 2i or generic camera")
+
+            # If stereo aspect ratio detected, likely ZED
+            if 3.0 <= aspect <= 4.0:
+                print("\nCombined conclusion:")
+                print("  - NOT RealSense (SDK exclusion)")
+                print("  - HAS stereo aspect ratio")
+                print("  - CONCLUSION: This is the ZED 2i stereo interface")
+    else:
+        print("\nSDK testing not available - install pyrealsense2")
+
+    # Re-open for resolution testing
+    print("\n" + "=" * 70)
+    print("RESOLUTION COMPATIBILITY TESTING")
+    print("=" * 70)
+    cap = cv2.VideoCapture(4, cv2.CAP_DSHOW)
+    if not cap.isOpened():
+        print("\nCannot re-open camera for resolution testing")
+        return
+
     # Try to set ZED stereo resolutions
     print("\nTesting ZED stereo resolutions:")
     zed_resolutions = [
@@ -120,6 +179,13 @@ def compare_index_2_and_4():
     print("Comparison: Index 2 vs Index 4")
     print("=" * 70)
 
+    # Import SDK exclusion function
+    try:
+        from utils.camera_identification_sdk import test_index_is_realsense_via_sdk_robust
+        sdk_available = True
+    except ImportError:
+        sdk_available = False
+
     for idx in [2, 4]:
         print(f"\n--- Index {idx} ---")
         cap = cv2.VideoCapture(idx, cv2.CAP_DSHOW)
@@ -137,11 +203,21 @@ def compare_index_2_and_4():
         print(f"Aspect: {aspect:.2f}")
 
         if 3.0 <= aspect <= 4.0:
-            print("STEREO")
+            print("Aspect ratio: STEREO")
         else:
-            print("Single camera (non-stereo)")
+            print("Aspect ratio: Single camera (non-stereo)")
 
         cap.release()
+
+        # SDK identification
+        if sdk_available:
+            is_realsense, status = test_index_is_realsense_via_sdk_robust(idx, 'DSHOW')
+            if is_realsense:
+                print(f"SDK result: REALSENSE ({status})")
+            else:
+                print(f"SDK result: NOT RealSense ({status})")
+        else:
+            print("SDK result: Not available")
 
 if __name__ == "__main__":
     test_index_4()

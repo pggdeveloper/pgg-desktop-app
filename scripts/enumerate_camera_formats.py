@@ -2,10 +2,18 @@
 Enumerate supported video formats for each camera index.
 Shows all resolutions, pixel formats, and frame rates supported by DirectShow.
 
+UPDATED (2025-10-17): Now uses SDK exclusion strategy to definitively
+identify if cameras are RealSense or ZED.
+
 This script provides detailed format information for each camera, helping to
 identify which camera supports which resolutions and formats.
 """
 import cv2
+import sys
+import os
+
+# Add parent directory to path to import SDK exclusion functions
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 def enumerate_formats(index: int):
     """
@@ -15,10 +23,18 @@ def enumerate_formats(index: int):
         index: Camera index to test
 
     Tests multiple common resolutions and reports which ones are supported.
+    Includes SDK-based camera identification (RealSense vs ZED).
     """
     print(f"\n{'='*70}")
     print(f"Camera Index {index} - Format Enumeration")
     print(f"{'='*70}")
+
+    # Import SDK exclusion function
+    try:
+        from utils.camera_identification_sdk import test_index_is_realsense_via_sdk_robust
+        sdk_available = True
+    except ImportError:
+        sdk_available = False
 
     try:
         # Try DirectShow first (primary backend on Windows)
@@ -118,6 +134,26 @@ def enumerate_formats(index: int):
             print(" Failed to capture frame")
 
         cap.release()
+
+        # SDK-based identification (run after closing OpenCV to avoid conflicts)
+        print("\nSDK-based identification:")
+        if sdk_available:
+            is_realsense, status = test_index_is_realsense_via_sdk_robust(index, 'DSHOW')
+
+            if is_realsense:
+                print(f" REALSENSE camera detected ({status})")
+            else:
+                print(f" NOT RealSense camera ({status})")
+
+                # If stereo formats detected + not RealSense, likely ZED
+                if stereo_formats:
+                    print(f" CONCLUSION: This is likely a ZED 2i camera")
+                    print(f"   - NOT RealSense (SDK exclusion)")
+                    print(f"   - HAS stereo format(s): {len(stereo_formats)}")
+                else:
+                    print(f" CONCLUSION: Generic camera (not RealSense, not stereo)")
+        else:
+            print(" SDK not available (install pyrealsense2 for identification)")
 
     except Exception as e:
         print(f" Error: {e}")
