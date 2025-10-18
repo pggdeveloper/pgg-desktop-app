@@ -8,6 +8,13 @@ from domain.camera_backend import CameraBackend
 from domain.camera_capabilities import CameraCapabilities
 from domain.camera_info import CameraInfo
 
+# Import device path resolution module (Windows only)
+try:
+    from utils.camera_device_path_resolver import resolve_configured_cameras
+    DEVICE_PATH_RESOLUTION_AVAILABLE = True
+except ImportError:
+    DEVICE_PATH_RESOLUTION_AVAILABLE = False
+
 WINDOWS_DEFAULT_BACKEND = cv2.CAP_DSHOW
 MAC_DEFAULT_BACKEND = cv2.CAP_AVFOUNDATION
 LINUX_DEFAULT_BACKEND = cv2.CAP_V4L2
@@ -881,19 +888,33 @@ def enumerate_usb_external_cameras(
     max_test: int = 10,
     linux_blacklist_vendor_model: Optional[list[str]] = None,
     detect_specialized: bool = True,
-    use_sdk_enhancement: bool = False
+    use_sdk_enhancement: bool = False,
+    use_device_path_resolution: bool = True
 ) -> list[CameraInfo]:
     """
-    Returns a list of cameras with enhanced type detection.
+    Returns a list of cameras with enhanced type detection and device path resolution.
 
     Args:
         max_test: Maximum camera indices to probe
         linux_blacklist_vendor_model: Linux-specific vendor/model blacklist
         detect_specialized: Enable VID/PID-based camera type detection
         use_sdk_enhancement: Use manufacturer SDKs for detailed detection (not yet implemented)
+        use_device_path_resolution: Enable Windows Device Path resolution (Windows only, default: True)
+                                    When enabled and PREFERRED_CAMERA_DEVICE_PATHS is configured,
+                                    filters cameras to only those specified in config.py
 
     Returns:
         List of CameraInfo objects with full metadata
+
+    Example Usage:
+        # Standard enumeration (all cameras)
+        all_cameras = enumerate_usb_external_cameras()
+
+        # With device path resolution (strict mode - only configured cameras)
+        configured_cameras = enumerate_usb_external_cameras(use_device_path_resolution=True)
+
+        # Disable device path resolution (always return all cameras)
+        all_cameras = enumerate_usb_external_cameras(use_device_path_resolution=False)
     """
     sysname = platform.system()
 
@@ -1000,7 +1021,206 @@ def enumerate_usb_external_cameras(
                 print(f"[DEBUG]   - Index {cam.index}: {cam.camera_type}{sdk_marker}")
                 print(f"[DEBUG]     Capabilities: {cam.capabilities}")
 
+    # DEVICE PATH RESOLUTION (Windows only)
+    # Filter cameras based on PREFERRED_CAMERA_DEVICE_PATHS config
+    if use_device_path_resolution and DEVICE_PATH_RESOLUTION_AVAILABLE:
+        # Only apply on Windows (device paths not supported on other platforms)
+        if platform.system() == "Windows":
+            # Check if device path detection is enabled in config
+            try:
+                import config
+                if hasattr(config, 'ENABLE_DEVICE_PATH_DETECTION') and config.ENABLE_DEVICE_PATH_DETECTION:
+                    if hasattr(config, 'PREFERRED_CAMERA_DEVICE_PATHS') and config.PREFERRED_CAMERA_DEVICE_PATHS:
+                        if DEBUG_MODE:
+                            print("[DEBUG] Starting device path resolution...")
+                            print(f"[DEBUG] Cameras before resolution: {len(cameras)}")
+
+                        # Resolve configured cameras from PREFERRED_CAMERA_DEVICE_PATHS
+                        configured = resolve_configured_cameras(
+                            cameras,
+                            fallback_mode=None  # Uses config.CAMERA_DETECTION_FALLBACK_MODE
+                        )
+
+                        # Get fallback mode from config (default: strict)
+                        fallback_mode = getattr(config, 'CAMERA_DETECTION_FALLBACK_MODE', 'strict')
+
+                        if fallback_mode == "strict":
+                            # STRICT MODE: ONLY return configured cameras
+                            # Flatten the configured dict to a list
+                            filtered_cameras = []
+                            for key, value in configured.items():
+                                if value is not None:
+                                    if isinstance(value, list):
+                                        filtered_cameras.extend(value)
+                                    else:
+                                        filtered_cameras.append(value)
+
+                            if DEBUG_MODE:
+                                print(f"[DEBUG] Device path resolution (strict mode): {len(filtered_cameras)} cameras")
+                                for cam in filtered_cameras:
+                                    print(f"[DEBUG]   - Index {cam.index}: {cam.name}")
+
+                            cameras = filtered_cameras
+                        else:
+                            # NON-STRICT MODE: Reorder cameras (configured first)
+                            configured_cameras = []
+                            configured_indices = set()
+
+                            # Extract configured cameras
+                            for key, value in configured.items():
+                                if value is not None:
+                                    if isinstance(value, list):
+                                        configured_cameras.extend(value)
+                                        configured_indices.update(
+                                            cam.index for cam in value if cam.index is not None
+                                        )
+                                    else:
+                                        configured_cameras.append(value)
+                                        if value.index is not None:
+                                            configured_indices.add(value.index)
+
+                            # Add non-configured cameras after configured ones
+                            unconfigured_cameras = [
+                                cam for cam in cameras
+                                if cam.index is None or cam.index not in configured_indices
+                            ]
+
+                            cameras = configured_cameras + unconfigured_cameras
+
+                            if DEBUG_MODE:
+                                print(f"[DEBUG] Device path resolution (non-strict): {len(cameras)} cameras")
+                                print(f"[DEBUG]   Configured: {len(configured_cameras)}")
+                                print(f"[DEBUG]   Unconfigured: {len(unconfigured_cameras)}")
+
+                    elif DEBUG_MODE:
+                        print("[DEBUG] Device path resolution: PREFERRED_CAMERA_DEVICE_PATHS not configured")
+                elif DEBUG_MODE:
+                    print("[DEBUG] Device path resolution: ENABLE_DEVICE_PATH_DETECTION is False")
+            except ImportError:
+                if DEBUG_MODE:
+                    print("[DEBUG] Device path resolution: config.py not available")
+    elif use_device_path_resolution and not DEVICE_PATH_RESOLUTION_AVAILABLE:
+        if DEBUG_MODE:
+            print("[DEBUG] Device path resolution: Module not available (import failed)")
+
     return cameras
+
+
+def get_configured_cameras(
+    fallback_mode: Optional[str] = None
+) -> dict[str, Union[CameraInfo, list[CameraInfo], None]]:
+    """
+    Get cameras configured in PREFERRED_CAMERA_DEVICE_PATHS (Windows only).
+
+    This is a convenience function that enumerates all cameras and resolves them
+    to the cameras specified in config.PREFERRED_CAMERA_DEVICE_PATHS.
+
+    Args:
+        fallback_mode: Override fallback mode
+                      None = use config.CAMERA_DETECTION_FALLBACK_MODE
+                      "strict" = ONLY configured cameras, ignore all others
+                      "sdk_exclusion" = Use SDK detection as fallback
+                      "first_available" = Use any available camera as fallback
+
+    Returns:
+        Dictionary mapping config keys to CameraInfo objects:
+        {
+            "realsense_primary": CameraInfo or None,
+            "zed_cameras": [CameraInfo, CameraInfo, ...] or [],
+        }
+
+        Returns empty dict if:
+          - Not on Windows
+          - Device path resolution not available
+          - ENABLE_DEVICE_PATH_DETECTION is False
+          - PREFERRED_CAMERA_DEVICE_PATHS not configured
+
+    Example Usage:
+        # Get configured cameras with strict mode (default)
+        configured = get_configured_cameras()
+
+        # Access RealSense camera
+        realsense = configured.get("realsense_primary")
+        if realsense:
+            print(f"RealSense: {realsense.friendly_name}")
+
+        # Access ZED cameras
+        zed_cameras = configured.get("zed_cameras", [])
+        for i, zed in enumerate(zed_cameras):
+            print(f"ZED #{i+1}: {zed.friendly_name}")
+
+    Strict Mode Example:
+        Connected cameras:
+          - ZED 2i #1 (7&1EBA99DD) <- CONFIGURED
+          - ZED 2i #2 (7&1500F77) <- CONFIGURED
+          - ZED 2i #3 (7&AAAA111) <- NOT CONFIGURED
+          - RealSense (6&D37468C) <- CONFIGURED
+
+        Result:
+          {
+              "realsense_primary": CameraInfo(serial=6&D37468C),
+              "zed_cameras": [
+                  CameraInfo(serial=7&1EBA99DD),  # Primary
+                  CameraInfo(serial=7&1500F77),   # Secondary
+              ]
+          }
+
+        ZED 2i #3 is IGNORED (not in config)
+    """
+    # Check if device path resolution is available
+    if not DEVICE_PATH_RESOLUTION_AVAILABLE:
+        if DEBUG_MODE:
+            print("[DEBUG] get_configured_cameras: Device path resolution not available")
+        return {}
+
+    # Check if running on Windows
+    if platform.system() != "Windows":
+        if DEBUG_MODE:
+            print("[DEBUG] get_configured_cameras: Not on Windows platform")
+        return {}
+
+    # Check if enabled in config
+    try:
+        import config
+        if not hasattr(config, 'ENABLE_DEVICE_PATH_DETECTION') or not config.ENABLE_DEVICE_PATH_DETECTION:
+            if DEBUG_MODE:
+                print("[DEBUG] get_configured_cameras: ENABLE_DEVICE_PATH_DETECTION is False")
+            return {}
+
+        if not hasattr(config, 'PREFERRED_CAMERA_DEVICE_PATHS') or not config.PREFERRED_CAMERA_DEVICE_PATHS:
+            if DEBUG_MODE:
+                print("[DEBUG] get_configured_cameras: PREFERRED_CAMERA_DEVICE_PATHS not configured")
+            return {}
+
+    except ImportError:
+        if DEBUG_MODE:
+            print("[DEBUG] get_configured_cameras: config.py not available")
+        return {}
+
+    # Enumerate all cameras
+    if DEBUG_MODE:
+        print("[DEBUG] get_configured_cameras: Enumerating all cameras...")
+
+    all_cameras = enumerate_usb_external_cameras(use_device_path_resolution=False)
+
+    if DEBUG_MODE:
+        print(f"[DEBUG] get_configured_cameras: Found {len(all_cameras)} total cameras")
+
+    # Resolve to configured cameras
+    configured = resolve_configured_cameras(all_cameras, fallback_mode=fallback_mode)
+
+    if DEBUG_MODE:
+        print(f"[DEBUG] get_configured_cameras: Resolved {len(configured)} groups")
+        for key, value in configured.items():
+            if isinstance(value, list):
+                print(f"[DEBUG]   {key}: {len(value)} cameras")
+            elif value is not None:
+                print(f"[DEBUG]   {key}: 1 camera")
+            else:
+                print(f"[DEBUG]   {key}: None (not found)")
+
+    return configured
+
 
 def filter_cameras_by_type(
     cameras: list[CameraInfo],

@@ -2,8 +2,8 @@
 Enumerate supported video formats for each camera index.
 Shows all resolutions, pixel formats, and frame rates supported by DirectShow.
 
-UPDATED (2025-10-17): Now uses SDK exclusion strategy to definitively
-identify if cameras are RealSense or ZED.
+UPDATED (2025-10-18): Now shows Windows Device Instance Paths (InstanceId)
+and generates configuration for stable camera identification.
 
 This script provides detailed format information for each camera, helping to
 identify which camera supports which resolutions and formats.
@@ -11,9 +11,52 @@ identify which camera supports which resolutions and formats.
 import cv2
 import sys
 import os
+import platform
 
 # Add parent directory to path to import SDK exclusion functions
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+def get_camera_metadata(index: int):
+    """
+    Get camera metadata including InstanceId (Windows only).
+
+    Returns:
+        Dict with camera metadata or None if not available
+    """
+    if platform.system() != "Windows":
+        return None
+
+    try:
+        from utils.utils import enumerate_usb_external_cameras
+        cameras = enumerate_usb_external_cameras(use_device_path_resolution=False)
+
+        # Find camera with matching index
+        for cam in cameras:
+            if cam.index == index:
+                return {
+                    "name": cam.name,
+                    "os_id": cam.os_id,
+                    "usb_vid": cam.usb_vid,
+                    "usb_pid": cam.usb_pid,
+                    "camera_type": str(cam.camera_type),
+                }
+        return None
+    except Exception:
+        return None
+
+
+def extract_serial(instance_id: str) -> str:
+    """Extract serial number from Windows Device Instance ID."""
+    if not instance_id:
+        return "N/A"
+
+    try:
+        from utils.camera_device_path_resolver import extract_serial_from_instance_id
+        serial = extract_serial_from_instance_id(instance_id)
+        return serial if serial else "N/A"
+    except ImportError:
+        return "N/A"
+
 
 def enumerate_formats(index: int):
     """
@@ -135,6 +178,27 @@ def enumerate_formats(index: int):
 
         cap.release()
 
+        # Get camera metadata (Windows only)
+        metadata = get_camera_metadata(index)
+        if metadata:
+            print("\nCamera metadata:")
+            print(f" Name: {metadata.get('name', 'N/A')}")
+            print(f" Type: {metadata.get('camera_type', 'N/A')}")
+
+            # Display InstanceId (Device Path)
+            instance_id = metadata.get('os_id')
+            if instance_id:
+                print(f" OS ID (InstanceId): {instance_id}")
+
+                # Extract and display serial
+                serial = extract_serial(instance_id)
+                print(f" Serial Number: {serial}")
+
+            # Display VID/PID
+            vid = metadata.get('usb_vid', 'N/A')
+            pid = metadata.get('usb_pid', 'N/A')
+            print(f" USB VID/PID: {vid}:{pid}")
+
         # SDK-based identification (run after closing OpenCV to avoid conflicts)
         print("\nSDK-based identification:")
         if sdk_available:
@@ -178,6 +242,19 @@ def main():
     print("  - Aspect ratio ~3.56 (stereo side-by-side)")
     print("  - Resolutions like 2560x720 or 3840x1080")
     print("  - Multiple stereo format options")
+
+    # Generate configuration helper (Windows only)
+    if platform.system() == "Windows":
+        print("\n" + "="*70)
+        print("CONFIGURATION HELPER")
+        print("="*70)
+        print("\nTo configure stable camera detection using device paths:")
+        print("1. Run: python scripts/diagnose_camera_indices.py")
+        print("2. Copy the generated PREFERRED_CAMERA_DEVICE_PATHS to config.py")
+        print("3. Set ENABLE_DEVICE_PATH_DETECTION = True in config.py")
+        print("\nDevice paths provide stable camera identification that")
+        print("persists across USB port changes and system reboots.")
+
 
 if __name__ == "__main__":
     main()

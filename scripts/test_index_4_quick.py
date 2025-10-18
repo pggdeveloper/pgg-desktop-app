@@ -1,8 +1,8 @@
 """
 Quick test for camera index 4 with SDK-based identification.
 
-UPDATED (2025-10-17): Now uses SDK exclusion strategy to definitively
-identify if a stereo camera is RealSense or ZED.
+UPDATED (2025-10-18): Now shows Windows Device Instance Paths (InstanceId)
+for stable camera identification across USB port changes.
 
 Based on console output, index 4 exists but has no PowerShell metadata.
 This script quickly tests if index 4 is the ZED 2i stereo interface.
@@ -12,9 +12,37 @@ Run this first for a quick answer to the mystery.
 import cv2
 import sys
 import os
+import platform
 
 # Add parent directory to path to import SDK exclusion functions
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+def get_camera_device_path(index: int):
+    """
+    Get Windows Device Instance Path for a camera index.
+
+    Returns:
+        Tuple of (instance_id, serial) or (None, None)
+    """
+    if platform.system() != "Windows":
+        return None, None
+
+    try:
+        from utils.utils import enumerate_usb_external_cameras
+        from utils.camera_device_path_resolver import extract_serial_from_instance_id
+
+        cameras = enumerate_usb_external_cameras(use_device_path_resolution=False)
+
+        for cam in cameras:
+            if cam.index == index:
+                instance_id = cam.os_id
+                serial = extract_serial_from_instance_id(instance_id) if instance_id else None
+                return instance_id, serial
+
+        return None, None
+    except Exception:
+        return None, None
+
 
 def test_index_4():
     """Quick test of index 4."""
@@ -96,6 +124,28 @@ def test_index_4():
         print("Failed to read frame")
 
     cap.release()
+
+    # Get device path (Windows only)
+    if platform.system() == "Windows":
+        print("\n" + "=" * 70)
+        print("DEVICE PATH INFORMATION (Windows)")
+        print("=" * 70)
+
+        instance_id, serial = get_camera_device_path(4)
+
+        if instance_id:
+            print(f"\nOS ID (InstanceId): {instance_id}")
+            print(f"Serial Number: {serial if serial else 'N/A'}")
+            print("\nThis device path can be used in config.py for stable identification:")
+            print("\nPREFERRED_CAMERA_DEVICE_PATHS = {")
+            print("    \"zed_cameras\": [")
+            escaped_path = instance_id.replace("\\", "\\\\")
+            print(f"        \"{escaped_path}\",  # Index 4 (Serial: {serial if serial else 'N/A'})")
+            print("    ],")
+            print("}")
+        else:
+            print("\nDevice path not available for index 4")
+            print("(Camera may not be enumerated via PowerShell)")
 
     # SDK-based identification
     print("\n" + "=" * 70)
@@ -208,6 +258,15 @@ def compare_index_2_and_4():
             print("Aspect ratio: Single camera (non-stereo)")
 
         cap.release()
+
+        # Device path (Windows only)
+        if platform.system() == "Windows":
+            instance_id, serial = get_camera_device_path(idx)
+            if instance_id:
+                print(f"OS ID: {instance_id}")
+                print(f"Serial: {serial if serial else 'N/A'}")
+            else:
+                print("Device path: Not available")
 
         # SDK identification
         if sdk_available:
